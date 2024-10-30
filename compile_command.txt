@@ -1,0 +1,243 @@
+$ g++ -o ./build/UnitTest_G_BigDecimal_Utility -I ./include/ UnitTest_G_BigDecimal_Utility.cpp
+
+error: 'std::integral' has not been declared
+  485 | template<std::integral uN>
+      |          ^~~
+-> missing std=c++20
+
+$ g++ -std=c++20 -o ./build/UnitTest_G_BigDecimal_Utility -I ./include/ UnitTest_G_BigDecimal_Utility.cpp
+
+UnitTest_G_BigDecimal_Utility.cpp:2581:35: error: narrowing conversion of '-1' from 'int' to 'Big_Dec_Seg' {aka 'short unsigned int'} [-Wnarrowing]
+ 2581 |         Big_Dec_Seg values_B[] = {-1,-1,-1,-1,};
+      |                                   ^~
+
+-> narrowing conversions from constants (and thus, literals?) are prohibited by the standard
+-> usually I compile with -Wall, which includes -Wno-narrowing, which suppresses this error
+https://gcc.gnu.org/onlinedocs/gcc-13.3.0/gcc/C_002b_002b-Dialect-Options.html#:~:text=For%20C%2B%2B11%20and%20later%20standards%2C%20narrowing%20conversions%20are%20diagnosed%20by%20default%2C%20as%20required%20by%20the%20standard.%20A%20narrowing%20conversion%20from%20a%20constant%20produces%20an%20error%2C%20and%20a%20narrowing%20conversion%20from%20a%20non%2Dconstant%20produces%20a%20warning
+For C++11 and later standards, narrowing conversions are diagnosed by default, as required by the standard. A narrowing conversion from a constant produces an error, and a narrowing conversion from a non-constant produces a warning
+
+$ g++ -std=c++20 -Wno-narrowing -o ./build/UnitTest_G_BigDecimal_Utility -I ./include/ UnitTest_G_BigDecimal_Utility.cpp
+
+=> compiles, but doesn't link
+
+E:/programming/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/13.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe: cannot open output file ./build/UnitTest_G_BigDecimal_Utility.exe: No such file or directory
+collect2.exe: error: ld returned 1 exit status
+
+-> GNU MOMENT:
+-> the compiler failed to produce the output file in the stated location BECAUSE THE DIRECTORY DIDN'T ALREADY EXIST
+-> but the compiler also did NOT indicate a problem :-)
+
+$ mkdir build
+$ g++ -std=c++20 -Wno-narrowing -o ./build/UnitTest_G_BigDecimal_Utility -I ./include/ UnitTest_G_BigDecimal_Utility.cpp
+
+E:/programming/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/13.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe: E:\programming\msys64\tmp\cctmSb6I.o:UnitTest_G_BigDecimal_Utility.cpp:(.text+0x9fa): undefine
+d reference to `__imp__Z15InitializeArenaP12memory_arenayPh'
+E:/programming/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/13.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe: E:\programming\msys64\tmp\cctmSb6I.o:UnitTest_G_BigDecimal_Utility.cpp:(.text+0xb13b): undefin
+ed reference to `CatStrings(char*, char*, int, char*)'
+E:/programming/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/13.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe: E:\programming\msys64\tmp\cctmSb6I.o:UnitTest_G_BigDecimal_Utility.cpp:(.text$_Z5Log2Ii[_Z5Log
+2Ii]+0x22): undefined reference to `BitScanReverse32(unsigned int)'
+E:/programming/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/13.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe: E:\programming\msys64\tmp\cctmSb6I.o:UnitTest_G_BigDecimal_Utility.cpp:(.text$_ZN14ArenaAllocM
+etaC1EyPFvPhyE[_ZN14ArenaAllocMetaC1EyPFvPhyE]+0x34): undefined reference to `__imp__Z15InitializeArenaP12memory_arenayPh'
+E:/programming/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/13.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe: E:\programming\msys64\tmp\cctmSb6I.o:UnitTest_G_BigDecimal_Utility.cpp:(.text$_ZN14ArenaAllocM
+eta8allocateEy[_ZN14ArenaAllocMeta8allocateEy]+0x1e): undefined reference to `__imp__Z9PushSize_P12memory_arenay'
+E:/programming/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/13.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe: E:\programming\msys64\tmp\cctmSb6I.o:UnitTest_G_BigDecimal_Utility.cpp:(.text$_ZN11Big_Decimal
+I10ArenaAllocItEEcvNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEEv[_ZN11Big_DecimalI10ArenaAllocItEEcvNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEEv]+0xad): undefined reference to `stbsp_sprin
+tf'
+E:/programming/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/13.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe: E:\programming\msys64\tmp\cctmSb6I.o:UnitTest_G_BigDecimal_Utility.cpp:(.text$_ZN11Big_Decimal
+I10ArenaAllocItEEcvNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEEv[_ZN11Big_DecimalI10ArenaAllocItEEcvNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEEv]+0x106): undefined reference to `stbsp_spri
+ntf'
+E:/programming/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/13.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe: E:\programming\msys64\tmp\cctmSb6I.o:UnitTest_G_BigDecimal_Utility.cpp:(.text$_Z5PrintI10Arena
+AllocItEEvR11Big_DecimalIT_EP12memory_arena[_Z5PrintI10ArenaAllocItEEvR11Big_DecimalIT_EP12memory_arena]+0x1a): undefined reference to `__imp__Z9PushArenaP12memory_arena'
+E:/programming/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/13.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe: E:\programming\msys64\tmp\cctmSb6I.o:UnitTest_G_BigDecimal_Utility.cpp:(.text$_Z5PrintI10Arena
+AllocItEEvR11Big_DecimalIT_EP12memory_arena[_Z5PrintI10ArenaAllocItEEvR11Big_DecimalIT_EP12memory_arena]+0x62): undefined reference to `__imp__Z8PopArenaP12memory_arena'
+E:/programming/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/13.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe: E:\programming\msys64\tmp\cctmSb6I.o:UnitTest_G_BigDecimal_Utility.cpp:(.text$_ZN11Big_Decimal
+I10ArenaAllocItEE8SetFloatEf[_ZN11Big_DecimalI10ArenaAllocItEE8SetFloatEf]+0x80): undefined reference to `BitScanReverse32(unsigned int)'
+E:/programming/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/13.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe: E:\programming\msys64\tmp\cctmSb6I.o:UnitTest_G_BigDecimal_Utility.cpp:(.text$_ZN11Big_Decimal
+I10ArenaAllocItEE8SetFloatEf[_ZN11Big_DecimalI10ArenaAllocItEE8SetFloatEf]+0x9c): undefined reference to `BitScanReverse32(unsigned int)'
+E:/programming/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/13.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe: E:\programming\msys64\tmp\cctmSb6I.o:UnitTest_G_BigDecimal_Utility.cpp:(.text$_Z8to_charsI10Ar
+enaAllocItES0_IcEEPcR11Big_DecimalIT_ERT0_[_Z8to_charsI10ArenaAllocItES0_IcEEPcR11Big_DecimalIT_ERT0_]+0xf5): undefined reference to `stbsp_sprintf'
+E:/programming/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/13.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe: E:\programming\msys64\tmp\cctmSb6I.o:UnitTest_G_BigDecimal_Utility.cpp:(.text$_Z8to_charsI10Ar
+enaAllocItES0_IcEEPcR11Big_DecimalIT_ERT0_[_Z8to_charsI10ArenaAllocItES0_IcEEPcR11Big_DecimalIT_ERT0_]+0x135): undefined reference to `stbsp_sprintf'
+E:/programming/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/13.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe: E:\programming\msys64\tmp\cctmSb6I.o:UnitTest_G_BigDecimal_Utility.cpp:(.text$_Z3StrI10ArenaAl
+locItEEPcR11Big_DecimalIT_EP12memory_arena[_Z3StrI10ArenaAllocItEEPcR11Big_DecimalIT_EP12memory_arena]+0xb0): undefined reference to `__imp__Z9PushSize_P12memory_arenay'
+E:/programming/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/13.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe: E:\programming\msys64\tmp\cctmSb6I.o:UnitTest_G_BigDecimal_Utility.cpp:(.text$_Z3StrI10ArenaAl
+locItEEPcR11Big_DecimalIT_EP12memory_arena[_Z3StrI10ArenaAllocItEEPcR11Big_DecimalIT_EP12memory_arena]+0xf9): undefined reference to `stbsp_sprintf'
+E:/programming/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/13.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe: E:\programming\msys64\tmp\cctmSb6I.o:UnitTest_G_BigDecimal_Utility.cpp:(.text$_Z3StrI10ArenaAl
+locItEEPcR11Big_DecimalIT_EP12memory_arena[_Z3StrI10ArenaAllocItEEPcR11Big_DecimalIT_EP12memory_arena]+0x139): undefined reference to `stbsp_sprintf'
+E:/programming/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/13.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe: E:\programming\msys64\tmp\cctmSb6I.o:UnitTest_G_BigDecimal_Utility.cpp:(.text$_ZN11Big_Decimal
+ISaItEEcvNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEEv[_ZN11Big_DecimalISaItEEcvNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEEv]+0xad): undefined reference to `stbsp_sprintf'
+E:/programming/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/13.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe: E:\programming\msys64\tmp\cctmSb6I.o:UnitTest_G_BigDecimal_Utility.cpp:(.text$_ZN11Big_Decimal
+ISaItEEcvNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEEv[_ZN11Big_DecimalISaItEEcvNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEEv]+0x106): undefined reference to `stbsp_sprintf'
+E:/programming/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/13.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe: E:\programming\msys64\tmp\cctmSb6I.o:UnitTest_G_BigDecimal_Utility.cpp:(.text$_ZN11Big_Decimal
+ISaItEE8SetFloatEf[_ZN11Big_DecimalISaItEE8SetFloatEf]+0x80): undefined reference to `BitScanReverse32(unsigned int)'
+E:/programming/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/13.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe: E:\programming\msys64\tmp\cctmSb6I.o:UnitTest_G_BigDecimal_Utility.cpp:(.text$_ZN11Big_Decimal
+ISaItEE8SetFloatEf[_ZN11Big_DecimalISaItEE8SetFloatEf]+0x9c): undefined reference to `BitScanReverse32(unsigned int)'
+collect2.exe: error: ld returned 1 exit status
+
+
+-> let's link the missing references
+$ g++ -std=c++20 -Wno-narrowing -o ./build/UnitTest_G_BigDecimal_Utility -I ./include/ -lG_MemoryManagement_Service.lib UnitTest_G_BigDecimal_Utility.cpp
+
+E:/programming/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/13.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe: cannot find -lG_MemoryManagement_Service.lib: No such file or directory
+collect2.exe: error: ld returned 1 exit status
+-> need to tell the linker where to find the library, i.e. set the search directory for the linker
+-> since the linker is its own program, we need to use the gcc command that passes a linker option to the linker, (-l is an exception to the rule?)
+
+$ g++ -std=c++20 -Wno-narrowing -o ./build/UnitTest_G_BigDecimal_Utility -I ./include/ -Wl,-L./lib -lG_MemoryManagement_Service.lib UnitTest_G_BigDecimal_Utility.cpp
+
+E:/programming/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/13.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe: cannot find -lG_MemoryManagement_Service.lib: No such file or directory
+collect2.exe: error: ld returned 1 exit status
+
+-> GNU moment?
+
+compare with IDE commands:
+#-c : create object files, no linking
+g++.exe -Wall -g -w -std=c++20 -fmax-errors=15 -v -Wreturn-type -IE:\programming\msys64\ucrt64\include\c++\13.2.0 -IE:\programming\msys64\ucrt64\include\FL -c E:\programming\G_ModulesHub\code\UnitTest_G_BigDecimal_Utility.cpp -o ..\build\UnitTest\obj\code\UnitTest_G_BigDecimal_Utility.o
+
+#call cc1plus.exe - which does... what?   output is a temporary assembly file. why/for what?
+#says its name is "GNU C++20 (Rev2, Built by MSYS2 project) version 13.2.0 (x86_64-w64-mingw32)"
+E:/programming/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/13.2.0/cc1plus.exe -quiet -v -I E:\programming\msys64\ucrt64\include\c++\13.2.0 -I E:\programming\msys64\ucrt64\include\FL -iprefix E:/programming/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/13.2.0/ -D_REENTRANT E:\programming\G_ModulesHub\code\UnitTest_G_BigDecimal_Utility.cpp -quiet -dumpdir ..\build\UnitTest\obj\code\ -dumpbase UnitTest_G_BigDecimal_Utility.cpp -dumpbase-ext .cpp -mtune=generic -march=nocona -g -Wall -Wreturn-type -w -std=c++20 -version -fmax-errors=15 -o C:\Users\Gerald\AppData\Local\Temp\cccoWbpT.s
+
+#call as.exe - gnu assembler, output the same temp file as above. again why, and why a second time, and why two different programs. i checked, the file doesn't even exist anymore after compiling.
+E:/programming/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/13.2.0/../../../../x86_64-w64-mingw32/bin/as.exe -v -W -I E:\programming\msys64\ucrt64\include\c++\13.2.0 -I E:\programming\msys64\ucrt64\include\FL --gdwarf-5 -o ..\build\UnitTest\obj\code\UnitTest_G_BigDecimal_Utility.o C:\Users\Gerald\AppData\Local\Temp\cccoWbpT.s
+
+# not sure why the verbose option is omitted here. this call to gcc seems to only have the linker directives. but there are no -W1,-L options. -L is passed directly.
+# at any rate, the question is, why did the linker not find my files earlier, when i gave the correct location.
+g++.exe -L..\build\UnitTest\ -L..\build\Debug -o ..\build\UnitTest\G_BigDecimal_Utility.exe ..\build\UnitTest\obj\code\UnitTest_G_BigDecimal_Utility.o -l:G_BigDecimal_Utility.lib -l:G_MemoryManagement_Service.lib -l:G_Miscellany_Utility.lib "..\lib\STB sprintf.lib"
+
+-> it has to be -l:MyLib.lib -> which it doesn't say in the documentation, in fact it gives an example without the colon -> YES IT'S A GNU MOMENT 
+   (without the : it's interpreted as lib<library>.a i think)
+-> -Wl, is optional -> even though it doesn't show up in the gcc documentation, but -l does -> minor gnu moment *yawn*
+
+works:
+$ g++ -std=c++20 -Wno-narrowing -o ./build/UnitTest_G_BigDecimal_Utility -I ./include/ -Wl,-L./lib -l:G_MemoryManagement_Service.lib UnitTest_G_BigDecimal_Utility.cpp
+also works:
+$ g++ -std=c++20 -Wno-narrowing -o ./build/UnitTest_G_BigDecimal_Utility -I ./include/ -L./lib -l:G_MemoryManagement_Service.lib UnitTest_G_BigDecimal_Utility.cpp
+
+-> this should have fixed the first link error, but it didn't: (why)
+E:/programming/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/13.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe: E:\programming\msys64\tmp\ccQ7fc8f.o:UnitTest_G_BigDecimal_Utility.cpp:(.text+0x9fa): undefine
+d reference to `__imp__Z15InitializeArenaP12memory_arenayPh'
+E:/programming/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/13.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe: E:\programming\msys64\tmp\ccQ7fc8f.o:UnitTest_G_BigDecimal_Utility.cpp:(.text+0xb13b): undefin
+ed reference to `CatStrings(char*, char*, int, char*)'
+E:/programming/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/13.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe: E:\programming\msys64\tmp\ccQ7fc8f.o:UnitTest_G_BigDecimal_Utility.cpp:(.text$_Z5Log2Ii[_Z5Log
+2Ii]+0x22): undefined reference to `BitScanReverse32(unsigned int)'
+E:/programming/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/13.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe: E:\programming\msys64\tmp\ccQ7fc8f.o:UnitTest_G_BigDecimal_Utility.cpp:(.text$_ZN14ArenaAllocM
+etaC1EyPFvPhyE[_ZN14ArenaAllocMetaC1EyPFvPhyE]+0x34): undefined reference to `__imp__Z15InitializeArenaP12memory_arenayPh'
+E:/programming/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/13.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe: E:\programming\msys64\tmp\ccQ7fc8f.o:UnitTest_G_BigDecimal_Utility.cpp:(.text$_ZN14ArenaAllocM
+eta8allocateEy[_ZN14ArenaAllocMeta8allocateEy]+0x1e): undefined reference to `__imp__Z9PushSize_P12memory_arenay'
+E:/programming/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/13.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe: E:\programming\msys64\tmp\ccQ7fc8f.o:UnitTest_G_BigDecimal_Utility.cpp:(.text$_ZN11Big_Decimal
+I10ArenaAllocItEEcvNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEEv[_ZN11Big_DecimalI10ArenaAllocItEEcvNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEEv]+0xad): undefined reference to `stbsp_sprin
+tf'
+E:/programming/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/13.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe: E:\programming\msys64\tmp\ccQ7fc8f.o:UnitTest_G_BigDecimal_Utility.cpp:(.text$_ZN11Big_Decimal
+I10ArenaAllocItEEcvNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEEv[_ZN11Big_DecimalI10ArenaAllocItEEcvNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEEv]+0x106): undefined reference to `stbsp_spri
+ntf'
+E:/programming/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/13.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe: E:\programming\msys64\tmp\ccQ7fc8f.o:UnitTest_G_BigDecimal_Utility.cpp:(.text$_Z5PrintI10Arena
+AllocItEEvR11Big_DecimalIT_EP12memory_arena[_Z5PrintI10ArenaAllocItEEvR11Big_DecimalIT_EP12memory_arena]+0x1a): undefined reference to `__imp__Z9PushArenaP12memory_arena'
+E:/programming/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/13.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe: E:\programming\msys64\tmp\ccQ7fc8f.o:UnitTest_G_BigDecimal_Utility.cpp:(.text$_Z5PrintI10Arena
+AllocItEEvR11Big_DecimalIT_EP12memory_arena[_Z5PrintI10ArenaAllocItEEvR11Big_DecimalIT_EP12memory_arena]+0x62): undefined reference to `__imp__Z8PopArenaP12memory_arena'
+E:/programming/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/13.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe: E:\programming\msys64\tmp\ccQ7fc8f.o:UnitTest_G_BigDecimal_Utility.cpp:(.text$_ZN11Big_Decimal
+I10ArenaAllocItEE8SetFloatEf[_ZN11Big_DecimalI10ArenaAllocItEE8SetFloatEf]+0x80): undefined reference to `BitScanReverse32(unsigned int)'
+E:/programming/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/13.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe: E:\programming\msys64\tmp\ccQ7fc8f.o:UnitTest_G_BigDecimal_Utility.cpp:(.text$_ZN11Big_Decimal
+I10ArenaAllocItEE8SetFloatEf[_ZN11Big_DecimalI10ArenaAllocItEE8SetFloatEf]+0x9c): undefined reference to `BitScanReverse32(unsigned int)'
+E:/programming/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/13.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe: E:\programming\msys64\tmp\ccQ7fc8f.o:UnitTest_G_BigDecimal_Utility.cpp:(.text$_Z8to_charsI10Ar
+enaAllocItES0_IcEEPcR11Big_DecimalIT_ERT0_[_Z8to_charsI10ArenaAllocItES0_IcEEPcR11Big_DecimalIT_ERT0_]+0xf5): undefined reference to `stbsp_sprintf'
+E:/programming/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/13.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe: E:\programming\msys64\tmp\ccQ7fc8f.o:UnitTest_G_BigDecimal_Utility.cpp:(.text$_Z8to_charsI10Ar
+enaAllocItES0_IcEEPcR11Big_DecimalIT_ERT0_[_Z8to_charsI10ArenaAllocItES0_IcEEPcR11Big_DecimalIT_ERT0_]+0x135): undefined reference to `stbsp_sprintf'
+E:/programming/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/13.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe: E:\programming\msys64\tmp\ccQ7fc8f.o:UnitTest_G_BigDecimal_Utility.cpp:(.text$_Z3StrI10ArenaAl
+locItEEPcR11Big_DecimalIT_EP12memory_arena[_Z3StrI10ArenaAllocItEEPcR11Big_DecimalIT_EP12memory_arena]+0xb0): undefined reference to `__imp__Z9PushSize_P12memory_arenay'
+E:/programming/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/13.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe: E:\programming\msys64\tmp\ccQ7fc8f.o:UnitTest_G_BigDecimal_Utility.cpp:(.text$_Z3StrI10ArenaAl
+locItEEPcR11Big_DecimalIT_EP12memory_arena[_Z3StrI10ArenaAllocItEEPcR11Big_DecimalIT_EP12memory_arena]+0xf9): undefined reference to `stbsp_sprintf'
+E:/programming/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/13.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe: E:\programming\msys64\tmp\ccQ7fc8f.o:UnitTest_G_BigDecimal_Utility.cpp:(.text$_Z3StrI10ArenaAl
+locItEEPcR11Big_DecimalIT_EP12memory_arena[_Z3StrI10ArenaAllocItEEPcR11Big_DecimalIT_EP12memory_arena]+0x139): undefined reference to `stbsp_sprintf'
+E:/programming/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/13.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe: E:\programming\msys64\tmp\ccQ7fc8f.o:UnitTest_G_BigDecimal_Utility.cpp:(.text$_ZN11Big_Decimal
+ISaItEEcvNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEEv[_ZN11Big_DecimalISaItEEcvNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEEv]+0xad): undefined reference to `stbsp_sprintf'
+E:/programming/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/13.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe: E:\programming\msys64\tmp\ccQ7fc8f.o:UnitTest_G_BigDecimal_Utility.cpp:(.text$_ZN11Big_Decimal
+ISaItEEcvNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEEv[_ZN11Big_DecimalISaItEEcvNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEEv]+0x106): undefined reference to `stbsp_sprintf'
+E:/programming/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/13.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe: E:\programming\msys64\tmp\ccQ7fc8f.o:UnitTest_G_BigDecimal_Utility.cpp:(.text$_ZN11Big_Decimal
+ISaItEE8SetFloatEf[_ZN11Big_DecimalISaItEE8SetFloatEf]+0x80): undefined reference to `BitScanReverse32(unsigned int)'
+E:/programming/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/13.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe: E:\programming\msys64\tmp\ccQ7fc8f.o:UnitTest_G_BigDecimal_Utility.cpp:(.text$_ZN11Big_Decimal
+ISaItEE8SetFloatEf[_ZN11Big_DecimalISaItEE8SetFloatEf]+0x9c): undefined reference to `BitScanReverse32(unsigned int)'
+
+$ g++ -std=c++20 -w -Wno-narrowing -o ./build/UnitTest_G_BigDecimal_Utility -I ./include/ -L./lib -l:G_MemoryManagement_Service.lib -l:G_Miscellany_Utility.lib -l:"STB sprintf.lib" UnitTest_G_BigDecimal_Utility.cpp
+
+E:/programming/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/13.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe: E:\programming\msys64\tmp\ccYN4M9k.o:UnitTest_G_BigDecimal_Utility.cpp:(.text+0x9fa): undefine
+d reference to `__imp__Z15InitializeArenaP12memory_arenayPh'
+E:/programming/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/13.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe: E:\programming\msys64\tmp\ccYN4M9k.o:UnitTest_G_BigDecimal_Utility.cpp:(.text+0xb13b): undefin
+ed reference to `CatStrings(char*, char*, int, char*)'
+E:/programming/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/13.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe: E:\programming\msys64\tmp\ccYN4M9k.o:UnitTest_G_BigDecimal_Utility.cpp:(.text$_Z5Log2Ii[_Z5Log
+2Ii]+0x22): undefined reference to `BitScanReverse32(unsigned int)'
+E:/programming/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/13.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe: E:\programming\msys64\tmp\ccYN4M9k.o:UnitTest_G_BigDecimal_Utility.cpp:(.text$_ZN14ArenaAllocM
+etaC1EyPFvPhyE[_ZN14ArenaAllocMetaC1EyPFvPhyE]+0x34): undefined reference to `__imp__Z15InitializeArenaP12memory_arenayPh'
+E:/programming/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/13.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe: E:\programming\msys64\tmp\ccYN4M9k.o:UnitTest_G_BigDecimal_Utility.cpp:(.text$_ZN14ArenaAllocM
+eta8allocateEy[_ZN14ArenaAllocMeta8allocateEy]+0x1e): undefined reference to `__imp__Z9PushSize_P12memory_arenay'
+E:/programming/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/13.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe: E:\programming\msys64\tmp\ccYN4M9k.o:UnitTest_G_BigDecimal_Utility.cpp:(.text$_ZN11Big_Decimal
+I10ArenaAllocItEEcvNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEEv[_ZN11Big_DecimalI10ArenaAllocItEEcvNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEEv]+0xad): undefined reference to `stbsp_sprin
+tf'
+E:/programming/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/13.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe: E:\programming\msys64\tmp\ccYN4M9k.o:UnitTest_G_BigDecimal_Utility.cpp:(.text$_ZN11Big_Decimal
+I10ArenaAllocItEEcvNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEEv[_ZN11Big_DecimalI10ArenaAllocItEEcvNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEEv]+0x106): undefined reference to `stbsp_spri
+ntf'
+E:/programming/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/13.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe: E:\programming\msys64\tmp\ccYN4M9k.o:UnitTest_G_BigDecimal_Utility.cpp:(.text$_Z5PrintI10Arena
+AllocItEEvR11Big_DecimalIT_EP12memory_arena[_Z5PrintI10ArenaAllocItEEvR11Big_DecimalIT_EP12memory_arena]+0x1a): undefined reference to `__imp__Z9PushArenaP12memory_arena'
+E:/programming/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/13.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe: E:\programming\msys64\tmp\ccYN4M9k.o:UnitTest_G_BigDecimal_Utility.cpp:(.text$_Z5PrintI10Arena
+AllocItEEvR11Big_DecimalIT_EP12memory_arena[_Z5PrintI10ArenaAllocItEEvR11Big_DecimalIT_EP12memory_arena]+0x62): undefined reference to `__imp__Z8PopArenaP12memory_arena'
+E:/programming/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/13.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe: E:\programming\msys64\tmp\ccYN4M9k.o:UnitTest_G_BigDecimal_Utility.cpp:(.text$_ZN11Big_Decimal
+I10ArenaAllocItEE8SetFloatEf[_ZN11Big_DecimalI10ArenaAllocItEE8SetFloatEf]+0x80): undefined reference to `BitScanReverse32(unsigned int)'
+E:/programming/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/13.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe: E:\programming\msys64\tmp\ccYN4M9k.o:UnitTest_G_BigDecimal_Utility.cpp:(.text$_ZN11Big_Decimal
+I10ArenaAllocItEE8SetFloatEf[_ZN11Big_DecimalI10ArenaAllocItEE8SetFloatEf]+0x9c): undefined reference to `BitScanReverse32(unsigned int)'
+E:/programming/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/13.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe: E:\programming\msys64\tmp\ccYN4M9k.o:UnitTest_G_BigDecimal_Utility.cpp:(.text$_Z8to_charsI10Ar
+enaAllocItES0_IcEEPcR11Big_DecimalIT_ERT0_[_Z8to_charsI10ArenaAllocItES0_IcEEPcR11Big_DecimalIT_ERT0_]+0xf5): undefined reference to `stbsp_sprintf'
+E:/programming/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/13.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe: E:\programming\msys64\tmp\ccYN4M9k.o:UnitTest_G_BigDecimal_Utility.cpp:(.text$_Z8to_charsI10Ar
+enaAllocItES0_IcEEPcR11Big_DecimalIT_ERT0_[_Z8to_charsI10ArenaAllocItES0_IcEEPcR11Big_DecimalIT_ERT0_]+0x135): undefined reference to `stbsp_sprintf'
+E:/programming/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/13.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe: E:\programming\msys64\tmp\ccYN4M9k.o:UnitTest_G_BigDecimal_Utility.cpp:(.text$_Z3StrI10ArenaAl
+locItEEPcR11Big_DecimalIT_EP12memory_arena[_Z3StrI10ArenaAllocItEEPcR11Big_DecimalIT_EP12memory_arena]+0xb0): undefined reference to `__imp__Z9PushSize_P12memory_arenay'
+E:/programming/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/13.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe: E:\programming\msys64\tmp\ccYN4M9k.o:UnitTest_G_BigDecimal_Utility.cpp:(.text$_Z3StrI10ArenaAl
+locItEEPcR11Big_DecimalIT_EP12memory_arena[_Z3StrI10ArenaAllocItEEPcR11Big_DecimalIT_EP12memory_arena]+0xf9): undefined reference to `stbsp_sprintf'
+E:/programming/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/13.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe: E:\programming\msys64\tmp\ccYN4M9k.o:UnitTest_G_BigDecimal_Utility.cpp:(.text$_Z3StrI10ArenaAl
+locItEEPcR11Big_DecimalIT_EP12memory_arena[_Z3StrI10ArenaAllocItEEPcR11Big_DecimalIT_EP12memory_arena]+0x139): undefined reference to `stbsp_sprintf'
+E:/programming/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/13.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe: E:\programming\msys64\tmp\ccYN4M9k.o:UnitTest_G_BigDecimal_Utility.cpp:(.text$_ZN11Big_Decimal
+ISaItEEcvNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEEv[_ZN11Big_DecimalISaItEEcvNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEEv]+0xad): undefined reference to `stbsp_sprintf'
+E:/programming/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/13.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe: E:\programming\msys64\tmp\ccYN4M9k.o:UnitTest_G_BigDecimal_Utility.cpp:(.text$_ZN11Big_Decimal
+ISaItEEcvNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEEv[_ZN11Big_DecimalISaItEEcvNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEEv]+0x106): undefined reference to `stbsp_sprintf'
+E:/programming/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/13.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe: E:\programming\msys64\tmp\ccYN4M9k.o:UnitTest_G_BigDecimal_Utility.cpp:(.text$_ZN11Big_Decimal
+ISaItEE8SetFloatEf[_ZN11Big_DecimalISaItEE8SetFloatEf]+0x80): undefined reference to `BitScanReverse32(unsigned int)'
+E:/programming/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/13.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe: E:\programming\msys64\tmp\ccYN4M9k.o:UnitTest_G_BigDecimal_Utility.cpp:(.text$_ZN11Big_Decimal
+ISaItEE8SetFloatEf[_ZN11Big_DecimalISaItEE8SetFloatEf]+0x9c): undefined reference to `BitScanReverse32(unsigned int)'
+
+-> compiling and linking in 2 separate steps actually works though:
+
+g++ -std=c++20 -w -Wno-narrowing -o ./build/UnitTest_G_BigDecimal_Utility -I ./include/ -c UnitTest_G_BigDecimal_Utility.cpp
+g++ -o ./build/UnitTest_G_BigDecimal_Utility.exe ./build/UnitTest_G_BigDecimal_Utility -L./lib -l:G_MemoryManagement_Service.lib -l:G_Miscellany_Utility.lib -l:"STB sprintf.lib"
+
+-> so, what is wrong with the single line command?
+g++ -std=c++20 -w -Wno-narrowing -o ./build/UnitTest_G_BigDecimal_Utility -I ./include/ -L./lib -l:G_MemoryManagement_Service.lib -l:G_Miscellany_Utility.lib -l:"STB sprintf.lib" UnitTest_G_BigDecimal_Utility.cpp
+
+i read 
+https://stackoverflow.com/questions/28655328/single-command-compile-and-link-fails-separate-steps-work
+that points out that -o must come before -l, aka heed correct link order. but i already do that
+
+-> try moving the I, L args to the front -> doesn't matter :
+g++ -std=c++20 -w -Wno-narrowing -I ./include/ -L./lib -o ./build/UnitTest_G_BigDecimal_Utility -l:G_MemoryManagement_Service.lib -l:G_Miscellany_Utility.lib -l:"STB sprintf.lib" UnitTest_G_BigDecimal_Utility.cpp
+
+g++ -std=c++20 -w -Wno-narrowing -I ./include/ -o ./build/UnitTest_G_BigDecimal_Utility.exe -L./lib -l:G_MemoryManagement_Service.lib -l:G_Miscellany_Utility.lib -l:"STB sprintf.lib" UnitTest_G_BigDecimal_Utility.cpp
+
+2024 10 28:
+adjust location of stb
+
+g++ -std=c++20 -w -Wno-narrowing -o ./build/UnitTest_G_BigDecimal_Utility -I ./include/ -c UnitTest_G_BigDecimal_Utility.cpp
+g++ -o ./build/UnitTest_G_BigDecimal_Utility.exe ./build/UnitTest_G_BigDecimal_Utility -L./lib -L"./lib/STB sprintf" -l:G_MemoryManagement_Service.lib -l:G_Miscellany_Utility.lib -l:"STB sprintf.lib"
+
+---
+20:10-20:17:
+boken compile command:
+g++ -std=c++20 -w -Wno-narrowing -o ./build/UnitTest_G_BigDecimal_Utility -I ./include/ -L./lib -L"./lib/STB sprintf" -l:G_MemoryManagement_Service.lib -l:G_Miscellany_Utility.lib -l:"STB sprintf.lib" UnitTest_G_BigDecimal_Utility.cpp
+
+working compile command:
+=> put linker arguments behind the file to be compiled
+
+g++ -std=c++20 -w -Wno-narrowing -o ./build/UnitTest_G_BigDecimal_Utility -I ./include/  UnitTest_G_BigDecimal_Utility.cpp -L./lib -L"./lib/STB sprintf" -l:G_MemoryManagement_Service.lib -l:G_Miscellany_Utility.lib -l:"STB sprintf.lib"
+
+TODO:
+fix the code in the original so that this compiles without any warning suppression flags (don't have to fix all warnings)
+
+g++ -std=c++20 -Wno-narrowing -o ./build/UnitTest_G_BigDecimal_Utility -I ./include/  UnitTest_G_BigDecimal_Utility.cpp -L./lib -L"./lib/STB sprintf" -l:G_MemoryManagement_Service.lib -l:G_Miscellany_Utility.lib -l:"STB sprintf.lib"
+
