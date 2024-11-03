@@ -85,7 +85,7 @@ i32 Test_big_decimal(bool only_errors = false) {
     memory_arena StringArena;
     InitializeArena(&StringArena, StringArenaSize, StringArenaBase);
 
-    using Arena_Alloc_Of_Big_Dec_Val = ArenaAlloc<Big_Dec_Seg>;
+    using Arena_Alloc_Of_Big_Dec_Val = ArenaAlloc<Big_Dec_Chunk>;
     using Big_Dec_Arena = Big_Decimal<Arena_Alloc_Of_Big_Dec_Val>;
     Arena_Alloc_Of_Big_Dec_Val virtual_alloc_arena_alloc_1 { ArenaSize, ArenaBase, virtual_free_decommit};
 
@@ -377,7 +377,7 @@ i32 Test_big_decimal(bool only_errors = false) {
 
     //test that Add won't allocate chunks when there are enough.
     {
-        Big_Dec_Seg max_unsigned = 0;
+        Big_Dec_Chunk max_unsigned = 0;
         --max_unsigned ;
         auto X = Big_Dec_Arena( virtual_alloc_arena_alloc_1, max_unsigned);
 
@@ -483,16 +483,16 @@ i32 Test_big_decimal(bool only_errors = false) {
         for (u32 Pow = 1 ; Pow < 100 ; ++Pow) {
             A.MulInteger(B);
             cout << string(A) << '\n';
-            u32 LeastBitIdx = Pow%Big_Dec_Seg_Width;
-            u32 LeastChunkIdx = Pow/Big_Dec_Seg_Width;;
+            u32 LeastBitIdx = Pow%Big_Dec_Chunk_Width;
+            u32 LeastChunkIdx = Pow/Big_Dec_Chunk_Width;;
 
             bool LastNBitsGood = A.GetChunk(LeastChunkIdx)->Value & (1ull<<LeastBitIdx);
             if (!LastNBitsGood) {
                 cout << "ERROR: " << Pow << ", " << Pow << '\n';
             }
             for (u32 BitIdx = 0 ; BitIdx < Pow-1 ; ++BitIdx) {
-                u32 LocalBitIdx = BitIdx%Big_Dec_Seg_Width;;
-                u32 ChunkIdx = BitIdx/Big_Dec_Seg_Width;;
+                u32 LocalBitIdx = BitIdx%Big_Dec_Chunk_Width;;
+                u32 ChunkIdx = BitIdx/Big_Dec_Chunk_Width;;
                 LastNBitsGood = LastNBitsGood && ~(A.GetChunk(ChunkIdx)->Value)&(1ull<<LocalBitIdx);
                 if (!LastNBitsGood) {
                     cout << "ERROR: " << Pow << ", " << BitIdx << '\n';
@@ -1522,7 +1522,7 @@ Test_Parsing(bool only_errors = false) {
 
     using std::cout;
     using std::string;
-    using Arena_Alloc_Of_Big_Dec_Val = ArenaAlloc<Big_Dec_Seg>;
+    using Arena_Alloc_Of_Big_Dec_Val = ArenaAlloc<Big_Dec_Chunk>;
     using Big_Dec_Arena = Big_Decimal<Arena_Alloc_Of_Big_Dec_Val>;
 
     i32 FailCount { 0 };
@@ -1954,7 +1954,7 @@ int Test_new_allocator_interface() {
     using std::cout;
     using std::string;
 
-    using Arena_Alloc_Of_Big_Dec_Val = ArenaAlloc<Big_Dec_Seg>;
+    using Arena_Alloc_Of_Big_Dec_Val = ArenaAlloc<Big_Dec_Chunk>;
     using Big_Dec_Arena = Big_Decimal<Arena_Alloc_Of_Big_Dec_Val>;
     cout << __func__ << "\n\n";
 
@@ -1968,7 +1968,7 @@ int Test_new_allocator_interface() {
         cout << "- BigDecimal::Release(): length == 1, capacity == 1, data.next == 0, Last == &Data, allocator.meta == nullptr \n";
 
         Big_Dec_Std::InitializeContext();
-        Big_Dec_Seg Bits[] = {1,2,3};
+        Big_Dec_Chunk Bits[] = {1,2,3};
         Big_Dec_Std A;
         A.Set(Bits,3);
 
@@ -1994,9 +1994,9 @@ int Test_new_allocator_interface() {
 
         size_t size = Kilobytes(1);
         u8 * memory = new u8[size]();
-        ArenaAlloc<Big_Dec_Seg> alloc_1{size, memory, std_deleter};
+        ArenaAlloc<Big_Dec_Chunk> alloc_1{size, memory, std_deleter};
         memory = new u8[size]();
-        ArenaAlloc<Big_Dec_Seg> alloc_2{size, memory, std_deleter};
+        ArenaAlloc<Big_Dec_Chunk> alloc_2{size, memory, std_deleter};
 
         OK = true;
         OK &= alloc_1.meta->ref_count == 1;
@@ -2064,12 +2064,12 @@ int Test_new_allocator_interface() {
         unit_test_context_variables_count<Big_Dec_Std>(Tests, "user created context variable", Big_Dec_Std::TEMPORARIES_COUNT + 1);
 
         my_num.ExtendLength();
-        my_num.Data.Next->Value = static_cast<Big_Dec_Seg>(0x12345678);
+        my_num.Data.Next->Value = static_cast<Big_Dec_Chunk>(0x12345678);
 
         OK = true;
         OK &= my_num.m_chunks_capacity == 2;
         OK &= my_num.Length == 2;
-        OK &= my_num.Data.Next && my_num.Data.Next->Value == static_cast<Big_Dec_Seg>(0x12345678);
+        OK &= my_num.Data.Next && my_num.Data.Next->Value == static_cast<Big_Dec_Chunk>(0x12345678);
         cout << "Test #" << Tests.TestCount << "\n";
         cout << "ExtendLength() -> new chunk allocated: " << (OK ? "OK" : "ERROR") << "\n\n";
         Tests.Append(OK);
@@ -2090,7 +2090,7 @@ int Test_new_allocator_interface() {
 
         memory_index capacity = Kilobytes(1);
         u8 *memory = new u8[capacity]();
-//        Arena_Allocator<Big_Dec_Seg> std_new_arena_alloc_1{capacity, memory};
+//        Arena_Allocator<Big_Dec_Chunk> std_new_arena_alloc_1{capacity, memory};
 
         Arena_Alloc_Of_Big_Dec_Val std_new_arena_alloc_1{ capacity, memory, std_deleter};
 
@@ -2105,12 +2105,12 @@ int Test_new_allocator_interface() {
         unit_test_context_variables_count<Big_Dec_Arena>(Tests, "Big Decimal with Arena with 1 user variable in context", Big_Dec_Arena::TEMPORARIES_COUNT+1);
 
         my_num.ExtendLength();
-        my_num.Data.Next->Value = static_cast<Big_Dec_Seg>(0x12345678);
+        my_num.Data.Next->Value = static_cast<Big_Dec_Chunk>(0x12345678);
 
         bool OK = true;
         OK &= my_num.m_chunks_capacity == 2;
         OK &= my_num.Length == 2;
-        OK &= my_num.Data.Next && my_num.Data.Next->Value == static_cast<Big_Dec_Seg>(0x12345678);
+        OK &= my_num.Data.Next && my_num.Data.Next->Value == static_cast<Big_Dec_Chunk>(0x12345678);
 
         cout << "Test #" << Tests.TestCount << "\n";
         cout << "capacity increased after ExtendLength(): " << (OK ? "OK" : "ERROR") << " ( " << my_num << " )\n\n";
@@ -2126,7 +2126,7 @@ int Test_new_allocator_interface() {
 
             size_t user_capacity = 512;
             u8 *user_memory = new u8[user_capacity]();
-            ArenaAlloc<Big_Dec_Seg> std_new_arena_alloc_2{user_capacity, user_memory, std_deleter};
+            ArenaAlloc<Big_Dec_Chunk> std_new_arena_alloc_2{user_capacity, user_memory, std_deleter};
 
             i32 old_ctx_count = Big_Dec_Arena::s_ctx_count;
             Big_Dec_Arena A { std_new_arena_alloc_2, f1};;
@@ -2192,7 +2192,7 @@ int Test_new_allocator_interface() {
             OK = true;
             ss.str("");
             ss << "+";
-            for (int i = 0 ; i < sizeof(Big_Dec_Seg) * 2 - 1 ; ++i) {
+            for (int i = 0 ; i < sizeof(Big_Dec_Chunk) * 2 - 1 ; ++i) {
                 ss << '0';
             }
             ss << "1 E0[0]";
@@ -2224,7 +2224,7 @@ int Test_new_allocator_interface() {
 
         {
             OK = true;
-            std::allocator<Big_Dec_Seg> std_alloc{};
+            std::allocator<Big_Dec_Chunk> std_alloc{};
             Big_Dec_Std A {std_alloc, 1, false, 0};
             Big_Dec_Std A_implicit {1.f};
             Big_Dec_Std B {std_alloc, 1, false, 0};
@@ -2264,19 +2264,19 @@ void test_CopyBitsTo(bool& OK, bool& only_errors, test_result& Tests)
     using std::cout;
     using std::string;
 
-    using Arena_Alloc_Of_Big_Dec_Val = ArenaAlloc<Big_Dec_Seg>;
+    using Arena_Alloc_Of_Big_Dec_Val = ArenaAlloc<Big_Dec_Chunk>;
     using Big_Dec_Arena = Big_Decimal<Arena_Alloc_Of_Big_Dec_Val>;
     HardAssert(Big_Dec_Arena::s_is_context_initialized);
 
-    using T_Seg = Big_Dec_Seg;
-    constexpr i32 seg_bits = Big_Dec_Seg_Width;
-    constexpr i32 top_bits = seg_bits / 2 - 1;
-    T_Seg test_value = GetMaskBottomN<T_Seg>(top_bits);
+    using T_Chunk = Big_Dec_Chunk;
+    constexpr i32 chunk_bits = Big_Dec_Chunk_Width;
+    constexpr i32 top_bits = chunk_bits / 2 - 1;
+    T_Chunk test_value = GetMaskBottomN<T_Chunk>(top_bits);
 
     Big_Dec_Arena in{test_value};
 
-    constexpr i32 slots_per_seg = sizeof(T_Seg) / sizeof(T_Slot);
-    constexpr i32 segs_per_slot = sizeof(T_Slot) / sizeof(T_Seg);
+    constexpr i32 slots_per_chunk = sizeof(T_Chunk) / sizeof(T_Slot);
+    constexpr i32 chunks_per_slot = sizeof(T_Slot) / sizeof(T_Chunk);
     constexpr i32 slot_bits = sizeof(T_Slot) * 8;
     constexpr i32 slot_count = (top_bits + slot_bits-1) / slot_bits;
 
@@ -2296,7 +2296,7 @@ void test_CopyBitsTo(bool& OK, bool& only_errors, test_result& Tests)
 
     if (!only_errors || !OK) {
         cout << "Test #" << Tests.TestCount << "\n";
-        cout << "copy bits to slots -> 1 less than half a segment's worth of 1's\n";
+        cout << "copy bits to slots -> 1 less than half a chunkment's worth of 1's\n";
         cout << "in :  " << in  << "\n";
         cout << "out:  ";
         cout << std::hex << std::setw(sizeof(T_Slot)*2) << std::setfill('0');
@@ -2320,23 +2320,23 @@ void test_CopyBitsTo(bool& OK, bool& only_errors, test_result& Tests)
 }
 
 template<typename T_Slot>
-void test_CopyBitsTo_2(bool& OK, bool& only_errors, test_result& Tests, Big_Dec_Seg test_value)
+void test_CopyBitsTo_2(bool& OK, bool& only_errors, test_result& Tests, Big_Dec_Chunk test_value)
 {
     using std::cout;
     using std::string;
 
-    using Arena_Alloc_Of_Big_Dec_Val = ArenaAlloc<Big_Dec_Seg>;
+    using Arena_Alloc_Of_Big_Dec_Val = ArenaAlloc<Big_Dec_Chunk>;
     using Big_Dec_Arena = Big_Decimal<Arena_Alloc_Of_Big_Dec_Val>;
     HardAssert(Big_Dec_Arena::s_is_context_initialized);
 
-    using T_Seg = Big_Dec_Seg;
-    constexpr i32 seg_bits = Big_Dec_Seg_Width;
-    i32 top_bits = BitScanReverse<Big_Dec_Seg>(test_value) + 1;
+    using T_Chunk = Big_Dec_Chunk;
+    constexpr i32 chunk_bits = Big_Dec_Chunk_Width;
+    i32 top_bits = BitScanReverse<Big_Dec_Chunk>(test_value) + 1;
 
     Big_Dec_Arena in{test_value};
 
-    constexpr i32 slots_per_seg = sizeof(T_Seg) / sizeof(T_Slot);
-    constexpr i32 segs_per_slot = sizeof(T_Slot) / sizeof(T_Seg);
+    constexpr i32 slots_per_chunk = sizeof(T_Chunk) / sizeof(T_Slot);
+    constexpr i32 chunks_per_slot = sizeof(T_Slot) / sizeof(T_Chunk);
     constexpr i32 slot_bits = sizeof(T_Slot) * 8;
     i32 slot_count = (top_bits + slot_bits-1) / slot_bits;
 
@@ -2345,12 +2345,12 @@ void test_CopyBitsTo_2(bool& OK, bool& only_errors, test_result& Tests, Big_Dec_
     in.CopyBitsTo<T_Slot>(slots, slot_count);
 
     T_Slot *exp = new T_Slot[slot_count] {};
-    T_Seg seg_mask = GetMaskBottomN<T_Seg>(seg_bits < slot_bits ? seg_bits : slot_bits);
+    T_Chunk chunk_mask = GetMaskBottomN<T_Chunk>(chunk_bits < slot_bits ? chunk_bits : slot_bits);
     for (i32 slot_idx = 0 ; slot_idx < slot_count ; ++slot_idx) {
-        T_Seg slot_value = seg_mask & test_value;
+        T_Chunk slot_value = chunk_mask & test_value;
         slot_value = SafeShiftRight(slot_value, slot_idx * slot_bits);
         exp[slot_idx] = static_cast<T_Slot>(slot_value);
-        seg_mask <<= slot_bits;
+        chunk_mask <<= slot_bits;
     }
 
     OK = true;
@@ -2385,27 +2385,27 @@ void test_CopyBitsTo_2(bool& OK, bool& only_errors, test_result& Tests, Big_Dec_
 
 
 template<typename T_Slot>
-void test_CopyBitsTo_3(bool& OK, bool& only_errors, test_result& Tests, Big_Dec_Seg *segs, i32 segs_count)
+void test_CopyBitsTo_3(bool& OK, bool& only_errors, test_result& Tests, Big_Dec_Chunk *chunks, i32 chunks_count)
 {
-    HardAssert(segs_count >= 0);
+    HardAssert(chunks_count >= 0);
 
     using std::cout;
     using std::string;
 
-    using Arena_Alloc_Of_Big_Dec_Val = ArenaAlloc<Big_Dec_Seg>;
+    using Arena_Alloc_Of_Big_Dec_Val = ArenaAlloc<Big_Dec_Chunk>;
     using Big_Dec_Arena = Big_Decimal<Arena_Alloc_Of_Big_Dec_Val>;
     HardAssert(Big_Dec_Arena::s_is_context_initialized);
 
-    using T_Seg = Big_Dec_Seg;
-    i32 top_bits = BitScanReverse<Big_Dec_Seg>(segs[segs_count-1])+1;
-    i32 seg_bits = Big_Dec_Seg_Width * (segs_count - 1) + top_bits;
+    using T_Chunk = Big_Dec_Chunk;
+    i32 top_bits = BitScanReverse<Big_Dec_Chunk>(chunks[chunks_count-1])+1;
+    i32 chunk_bits = Big_Dec_Chunk_Width * (chunks_count - 1) + top_bits;
 
-    Big_Dec_Arena in{segs, segs_count};
+    Big_Dec_Arena in{chunks, chunks_count};
 
-    constexpr i32 slots_per_seg = sizeof(T_Seg) / sizeof(T_Slot);
-    constexpr i32 segs_per_slot = sizeof(T_Slot) / sizeof(T_Seg);
+    constexpr i32 slots_per_chunk = sizeof(T_Chunk) / sizeof(T_Slot);
+    constexpr i32 chunks_per_slot = sizeof(T_Slot) / sizeof(T_Chunk);
     constexpr i32 slot_width = sizeof(T_Slot) * 8;
-    i32 slot_count = DivCeil(seg_bits, slot_width);
+    i32 slot_count = DivCeil(chunk_bits, slot_width);
 
     T_Slot *slots = new T_Slot[slot_count] {};
 
@@ -2413,28 +2413,28 @@ void test_CopyBitsTo_3(bool& OK, bool& only_errors, test_result& Tests, Big_Dec_
 
     T_Slot *exp = new T_Slot[slot_count] {};
 
-    if (slots_per_seg) {
-        T_Seg seg_mask = 0x0;
+    if (slots_per_chunk) {
+        T_Chunk chunk_mask = 0x0;
         i32 total_slot_idx = 0;
-        for (i32 seg_idx = 0 ; seg_idx < segs_count ; ++seg_idx) {
-            seg_mask = GetMaskBottomN<T_Seg>(slot_width > Big_Dec_Seg_Width ? Big_Dec_Seg_Width : slot_width);
-            for (i32 slot_idx = 0 ; slot_idx < slots_per_seg ; ++slot_idx) {
+        for (i32 chunk_idx = 0 ; chunk_idx < chunks_count ; ++chunk_idx) {
+            chunk_mask = GetMaskBottomN<T_Chunk>(slot_width > Big_Dec_Chunk_Width ? Big_Dec_Chunk_Width : slot_width);
+            for (i32 slot_idx = 0 ; slot_idx < slots_per_chunk ; ++slot_idx) {
                 if (total_slot_idx == slot_count) break;
 
-                exp[total_slot_idx] = seg_mask & segs[seg_idx];
+                exp[total_slot_idx] = chunk_mask & chunks[chunk_idx];
                 ++total_slot_idx;
-                seg_mask = SafeShiftLeft(seg_mask, slot_width);
+                chunk_mask = SafeShiftLeft(chunk_mask, slot_width);
             }
         }
     } else {
-        i32 total_seg_idx = 0;
+        i32 total_chunk_idx = 0;
         for (i32 slot_idx = 0 ; slot_idx < slot_count ; ++slot_idx) {
-            for (i32 seg_idx = 0 ; seg_idx < segs_per_slot ; ++seg_idx) {
-                if (total_seg_idx == segs_count) break;
-                T_Slot shifted_seg = segs[total_seg_idx];
-                shifted_seg = SafeShiftLeft(shifted_seg, Big_Dec_Seg_Width * seg_idx);
-                exp[slot_idx] |= shifted_seg;
-                ++total_seg_idx;
+            for (i32 chunk_idx = 0 ; chunk_idx < chunks_per_slot ; ++chunk_idx) {
+                if (total_chunk_idx == chunks_count) break;
+                T_Slot shifted_chunk = chunks[total_chunk_idx];
+                shifted_chunk = SafeShiftLeft(shifted_chunk, Big_Dec_Chunk_Width * chunk_idx);
+                exp[slot_idx] |= shifted_chunk;
+                ++total_chunk_idx;
             }
         }
     }
@@ -2446,7 +2446,7 @@ void test_CopyBitsTo_3(bool& OK, bool& only_errors, test_result& Tests, Big_Dec_
 
     if (!only_errors || !OK) {
         cout << "Test #" << Tests.TestCount << "\n";
-        cout << "copy bits to slots -> multiple segments\n";
+        cout << "copy bits to slots -> multiple chunkments\n";
         cout << "in :  " << in  << "\n";
         cout << "out:  ";
         cout << std::hex;
@@ -2472,12 +2472,12 @@ void test_CopyBitsTo_3(bool& OK, bool& only_errors, test_result& Tests, Big_Dec_
 }
 
 
-int Test_variable_segment_size(bool only_errors=false) {
+int Test_variable_chunkment_size(bool only_errors=false) {
 
     using std::cout;
     using std::string;
 
-    using Arena_Alloc_Of_Big_Dec_Val = ArenaAlloc<Big_Dec_Seg>;
+    using Arena_Alloc_Of_Big_Dec_Val = ArenaAlloc<Big_Dec_Chunk>;
     using Big_Dec_Arena = Big_Decimal<Arena_Alloc_Of_Big_Dec_Val>;
     cout << __func__ << "\n\n";
 
@@ -2489,14 +2489,14 @@ int Test_variable_segment_size(bool only_errors=false) {
 
     size_t size = Kilobytes(512);
     u8 * memory = new u8[size]();
-    ArenaAlloc<Big_Dec_Seg> alloc{size, memory, std_deleter};
+    ArenaAlloc<Big_Dec_Chunk> alloc{size, memory, std_deleter};
     Big_Dec_Arena::InitializeContext(alloc);
     {
 
         cout << "Test #" << Tests.TestCount << "\n";
 
         Big_Dec_Arena A{};
-        Big_Dec_Seg vals[] = {1,1};
+        Big_Dec_Chunk vals[] = {1,1};
         A.Set(vals,2);
 
         i32 ctx_count = 0;
@@ -2553,12 +2553,12 @@ int Test_variable_segment_size(bool only_errors=false) {
     }
 
     {
-        Big_Dec_Seg vals[] {0x0d,0xf3,0x10};
+        Big_Dec_Chunk vals[] {0x0d,0xf3,0x10};
         Big_Dec_Arena A{vals,3};
         Big_Dec_Arena B{0xd};
         Big_Dec_Arena C{A};
         C.SubIntegerUnsignedPositive(B);
-        Big_Dec_Seg exp[] {0x0, 0xf3, 0x10};
+        Big_Dec_Chunk exp[] {0x0, 0xf3, 0x10};
         Big_Dec_Arena E{exp,3};
 
         OK = C.EqualsInteger(E);
@@ -2577,8 +2577,8 @@ int Test_variable_segment_size(bool only_errors=false) {
     }
 
     {
-        Big_Dec_Seg values_A[] = {0x0,0x0,0x0,0x0,0x1};
-        Big_Dec_Seg values_B[] = {-1,-1,-1,-1,};
+        Big_Dec_Chunk values_A[] = {0x0,0x0,0x0,0x0,0x1};
+        Big_Dec_Chunk values_B[] = {-1,-1,-1,-1,};
         Big_Dec_Arena A{values_A, 5};
         Big_Dec_Arena B{values_B, 4};
         Big_Dec_Arena C{A};
@@ -2604,10 +2604,10 @@ int Test_variable_segment_size(bool only_errors=false) {
     }
 
     {
-        Big_Dec_Seg val_in = ~Big_Dec_Seg(0ull);
+        Big_Dec_Chunk val_in = ~Big_Dec_Chunk(0ull);
         Big_Dec_Arena in{val_in};
 
-        Big_Dec_Seg values_exp[] = {Big_Dec_Seg(~1ull), 0x1};
+        Big_Dec_Chunk values_exp[] = {Big_Dec_Chunk(~1ull), 0x1};
         Big_Dec_Arena exp{values_exp, 2};
 
         Big_Dec_Arena out{in};
@@ -2633,9 +2633,9 @@ int Test_variable_segment_size(bool only_errors=false) {
 
 
     {
-        Big_Dec_Seg values_in[] = {1,0,0,0,1};
+        Big_Dec_Chunk values_in[] = {1,0,0,0,1};
         Big_Dec_Arena A{values_in, 5};
-        i32 msb_exp = Big_Dec_Seg_Width * 4;
+        i32 msb_exp = Big_Dec_Chunk_Width * 4;
         i32 msb_out = A.GetMSB();
 
         OK = true;
@@ -2655,9 +2655,9 @@ int Test_variable_segment_size(bool only_errors=false) {
 
 
     {
-        Big_Dec_Seg values_in[] = {1,0,0,0,1};
+        Big_Dec_Chunk values_in[] = {1,0,0,0,1};
         Big_Dec_Arena A{values_in, 5};
-        i32 wanted_idx = Big_Dec_Seg_Width * 4;
+        i32 wanted_idx = Big_Dec_Chunk_Width * 4;
         bool bit_exp = true;
         bool bit_out = A.GetBit(wanted_idx);
 
@@ -2678,12 +2678,12 @@ int Test_variable_segment_size(bool only_errors=false) {
 
 
     {
-        Big_Dec_Seg values_in[] = {0,0,0,0,1};
+        Big_Dec_Chunk values_in[] = {0,0,0,0,1};
         Big_Dec_Arena in{values_in, 5};
         Big_Dec_Arena out{in};
-        Big_Dec_Seg values_exp[] = {0,0,0,1,0};
+        Big_Dec_Chunk values_exp[] = {0,0,0,1,0};
         Big_Dec_Arena exp{values_exp, 5};
-        i32 shift_amount = Big_Dec_Seg_Width;
+        i32 shift_amount = Big_Dec_Chunk_Width;
 
         out.ShiftRight(shift_amount);
 
@@ -2703,11 +2703,11 @@ int Test_variable_segment_size(bool only_errors=false) {
     }
 
     {
-        Big_Dec_Seg values_in[] = {0,0,0,0,1};
+        Big_Dec_Chunk values_in[] = {0,0,0,0,1};
         Big_Dec_Arena in{values_in, 5};
         Big_Dec_Arena out{in};
         Big_Dec_Arena exp{1};
-        i32 shift_amount = Big_Dec_Seg_Width*4;
+        i32 shift_amount = Big_Dec_Chunk_Width*4;
 
         out.ShiftRight(shift_amount);
 
@@ -2797,7 +2797,7 @@ int Test_variable_segment_size(bool only_errors=false) {
     }
 
     {
-        Big_Dec_Seg chunks[] { -1, -1, -1, -1 };
+        Big_Dec_Chunk chunks[] { -1, -1, -1, -1 };
         Big_Dec_Arena in{chunks, ArrayCount(chunks),false,0};
         bool out = false;
         bool exp = true;
@@ -2828,7 +2828,7 @@ int Test_variable_segment_size(bool only_errors=false) {
     }
 
     {
-        Big_Dec_Seg test_value = SafeShiftLeft(1,Big_Dec_Seg_Width-1) | 1;
+        Big_Dec_Chunk test_value = SafeShiftLeft(1,Big_Dec_Chunk_Width-1) | 1;
         test_CopyBitsTo_2<u8>(OK, only_errors, Tests , test_value);
         test_CopyBitsTo_2<u16>(OK, only_errors, Tests, test_value);
         test_CopyBitsTo_2<u32>(OK, only_errors, Tests, test_value);
@@ -2836,22 +2836,22 @@ int Test_variable_segment_size(bool only_errors=false) {
     }
 
     {
-        Big_Dec_Seg test_segs[] = {1,1,1,1,1};
+        Big_Dec_Chunk test_chunks[] = {1,1,1,1,1};
 
-        test_CopyBitsTo_3<u8>(OK, only_errors, Tests , test_segs, ArrayCount(test_segs));
-        test_CopyBitsTo_3<u16>(OK, only_errors, Tests, test_segs, ArrayCount(test_segs));
-        test_CopyBitsTo_3<u32>(OK, only_errors, Tests, test_segs, ArrayCount(test_segs));
-        test_CopyBitsTo_3<u64>(OK, only_errors, Tests, test_segs, ArrayCount(test_segs));
+        test_CopyBitsTo_3<u8>(OK, only_errors, Tests , test_chunks, ArrayCount(test_chunks));
+        test_CopyBitsTo_3<u16>(OK, only_errors, Tests, test_chunks, ArrayCount(test_chunks));
+        test_CopyBitsTo_3<u32>(OK, only_errors, Tests, test_chunks, ArrayCount(test_chunks));
+        test_CopyBitsTo_3<u64>(OK, only_errors, Tests, test_chunks, ArrayCount(test_chunks));
     }
 
     {
         using T_Slot = u32;
-        Big_Dec_Seg segs[] { -1, -1, -1, -1 };
-        constexpr i32 seg_count = ArrayCount(segs);
-        Big_Dec_Arena in{segs, seg_count, false,0};
-        constexpr i32 slots_per_seg = sizeof(segs[0]) / sizeof(T_Slot);
-        constexpr i32 segs_per_slot = sizeof(T_Slot) / sizeof(segs[0]);
-        constexpr i32 slot_count = segs_per_slot ? (seg_count + segs_per_slot - 1) / segs_per_slot : seg_count * slots_per_seg;
+        Big_Dec_Chunk chunks[] { -1, -1, -1, -1 };
+        constexpr i32 chunk_count = ArrayCount(chunks);
+        Big_Dec_Arena in{chunks, chunk_count, false,0};
+        constexpr i32 slots_per_chunk = sizeof(chunks[0]) / sizeof(T_Slot);
+        constexpr i32 chunks_per_slot = sizeof(T_Slot) / sizeof(chunks[0]);
+        constexpr i32 slot_count = chunks_per_slot ? (chunk_count + chunks_per_slot - 1) / chunks_per_slot : chunk_count * slots_per_chunk;
         T_Slot slots[slot_count] {};
 
         in.CopyBitsTo<T_Slot>(slots, slot_count);
@@ -2889,12 +2889,12 @@ int Test_variable_segment_size(bool only_errors=false) {
 
     {
         using T_Slot = u64;
-        Big_Dec_Seg segs[] { ~0ull, ~0ull, ~0ull, ~0ull };
-        constexpr i32 seg_count = ArrayCount(segs);
-        Big_Dec_Arena in{segs, seg_count, false,0};
-        constexpr i32 slots_per_seg = sizeof(segs[0]) / sizeof(T_Slot);
-        constexpr i32 segs_per_slot = sizeof(T_Slot) / sizeof(segs[0]);
-        i32 slot_count = segs_per_slot ? DivCeil(seg_count,segs_per_slot) : seg_count * slots_per_seg;
+        Big_Dec_Chunk chunks[] { ~0ull, ~0ull, ~0ull, ~0ull };
+        constexpr i32 chunk_count = ArrayCount(chunks);
+        Big_Dec_Arena in{chunks, chunk_count, false,0};
+        constexpr i32 slots_per_chunk = sizeof(chunks[0]) / sizeof(T_Slot);
+        constexpr i32 chunks_per_slot = sizeof(T_Slot) / sizeof(chunks[0]);
+        i32 slot_count = chunks_per_slot ? DivCeil(chunk_count,chunks_per_slot) : chunk_count * slots_per_chunk;
 
         T_Slot out[slot_count] {};
 
@@ -2902,7 +2902,7 @@ int Test_variable_segment_size(bool only_errors=false) {
         for (i32 i_slot = 0 ; i_slot < slot_count-1 ; ++i_slot) {
             exp[i_slot] = ~0ull;
         }
-        i32 src_bytes = seg_count * sizeof(Big_Dec_Seg);
+        i32 src_bytes = chunk_count * sizeof(Big_Dec_Chunk);
         i32 bytes_left = src_bytes - (slot_count-1)*sizeof(T_Slot);
         T_Slot mask = GetMaskBottomN<T_Slot>(8*bytes_left);
         exp[slot_count-1] = mask;
@@ -2910,7 +2910,7 @@ int Test_variable_segment_size(bool only_errors=false) {
         in.CopyBitsTo<T_Slot>(out, slot_count);
 
         OK = true;
-        OK &= (sizeof(u64)*(slot_count - 1)) / (sizeof(Big_Dec_Seg) * seg_count) == 0;
+        OK &= (sizeof(u64)*(slot_count - 1)) / (sizeof(Big_Dec_Chunk) * chunk_count) == 0;
 
         for (i32 slot_idx = 0 ; slot_idx < slot_count ; ++slot_idx) {
             OK &= out[slot_idx] == exp[slot_idx];
@@ -2967,14 +2967,14 @@ int Test_variable_segment_size(bool only_errors=false) {
     }
 
     {
-        Big_Dec_Seg values[] {0x0, 0x1, 0x2, 0x3};
+        Big_Dec_Chunk values[] {0x0, 0x1, 0x2, 0x3};
         Big_Dec_Arena a{alloc, &values[0], ArrayCount(values)};
         if (!only_errors || !OK) {
             cout << "test #" << Tests.TestCount << " : ctor(allocator, array) \n";
         }
         OK = true;
         OK &= a.Length == ArrayCount(values);
-        Big_Dec_Arena::Seg_List *cur = &a.Data;
+        Big_Dec_Arena::Chunk_List *cur = &a.Data;
         for (i32 i = 0 ; i < a.Length ; ++i) {
             OK &= cur->Value == values[i];
             cur = cur->Next;
@@ -3039,7 +3039,7 @@ int Test_variable_segment_size(bool only_errors=false) {
     {
         u64 in[] {0x0,0x0,0x1};
         Big_Dec_Arena out{in, ArrayCount(in)};
-        i32 expected_length = (sizeof(u64) / sizeof(Big_Dec_Seg)) * 2 + 1;
+        i32 expected_length = (sizeof(u64) / sizeof(Big_Dec_Chunk)) * 2 + 1;
         OK = true;
         OK &= out.Length == expected_length;
 
@@ -3066,10 +3066,10 @@ int Test_variable_segment_size(bool only_errors=false) {
 
 int main() {
     i32 FailCount = 0;
-//    FailCount += Test_big_decimal();
-//    FailCount += Test_Parsing();
-//    FailCount += Test_new_allocator_interface();
-    FailCount += Test_variable_segment_size(false);
+    FailCount += Test_big_decimal();
+    FailCount += Test_Parsing();
+    FailCount += Test_new_allocator_interface();
+    FailCount += Test_variable_chunkment_size(false);
 
     return FailCount;
 }
