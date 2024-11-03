@@ -48,9 +48,9 @@ std::ostream& operator<<(std::ostream& Out, test_result& Tests) {
 }
 
 //TODO(ArokhSlade##2024 08 13): this is copy-pasta from UnitTest_G_PlatformGame_2_Module.cpp. extract!
-//TODO(ArokhSlade##2024 08 26): look into maybe using the Big_Decimal's own allocator for this?
+//TODO(ArokhSlade##2024 08 26): look into maybe using the BigDecimal's own allocator for this?
 template <typename T_Alloc>
-auto Print(Big_Decimal<T_Alloc>& A, memory_arena *StringArena) -> void {
+auto Print(BigDecimal<T_Alloc>& A, memory_arena *StringArena) -> void {
     memory_arena *TempArena = PushArena(StringArena);
     std::cout << Str(A, TempArena) << "\n";
     PopArena(TempArena);
@@ -85,22 +85,22 @@ i32 Test_big_decimal(bool only_errors = false) {
     memory_arena StringArena;
     InitializeArena(&StringArena, StringArenaSize, StringArenaBase);
 
-    using Arena_Alloc_Of_Big_Dec_Val = ArenaAlloc<Big_Dec_Chunk>;
-    using Big_Dec_Arena = Big_Decimal<Arena_Alloc_Of_Big_Dec_Val>;
-    Arena_Alloc_Of_Big_Dec_Val virtual_alloc_arena_alloc_1 { ArenaSize, ArenaBase, virtual_free_decommit};
+    using ArenaChunkAlloc = ArenaAlloc<ChunkBits>;
+    using BigDec_Arena = BigDecimal<ArenaChunkAlloc>;
+    ArenaChunkAlloc virtual_alloc_arena_alloc_1 { ArenaSize, ArenaBase, virtual_free_decommit};
 
-    Big_Dec_Arena::InitializeContext ( virtual_alloc_arena_alloc_1);
+    BigDec_Arena::initialize_context ( virtual_alloc_arena_alloc_1);
 
-    Big_Dec_Arena A { virtual_alloc_arena_alloc_1, 9};
-    Big_Dec_Arena OldA { virtual_alloc_arena_alloc_1, A};
-    Big_Dec_Arena B { virtual_alloc_arena_alloc_1, 10};
+    BigDec_Arena A { virtual_alloc_arena_alloc_1, 9};
+    BigDec_Arena OldA { virtual_alloc_arena_alloc_1, A};
+    BigDec_Arena B { virtual_alloc_arena_alloc_1, 10};
 
-    Big_Dec_Arena Expected ( virtual_alloc_arena_alloc_1, 0);
+    BigDec_Arena Expected ( virtual_alloc_arena_alloc_1, 0);
 
     auto CheckA = [&](){
-        Tests.Append(A.EqualsInteger(Expected)); };
+        Tests.Append(A.equals_integer(Expected)); };
 
-    auto PrintTestOutput = [&Tests](Big_Dec_Arena& Before, Big_Dec_Arena& After, Big_Dec_Arena& Wanted,
+    auto PrintTestOutput = [&Tests](BigDec_Arena& Before, BigDec_Arena& After, BigDec_Arena& Wanted,
                                     char *BeforeName, char *AfterName, char*WantedName, char *TestName){
         cout << "Test #" << Tests.TestCount;
         if (TestName)   cout << " : " << TestName;
@@ -117,27 +117,27 @@ i32 Test_big_decimal(bool only_errors = false) {
     std::cout << std::boolalpha;
 
 #if 1
-    Tests.Append(A.Length >= 1 && A.GetChunk(0)->Value == i32{9});
+    Tests.Append(A.length >= 1 && A.get_chunk(0)->value == i32{9});
     Print(A,&StringArena);
 
-    Tests.Append(B.Length >= 1 && B.GetChunk(0)->Value == i32{10});
+    Tests.Append(B.length >= 1 && B.get_chunk(0)->value == i32{10});
     Print(B,&StringArena);
 
-    B.AddIntegerSigned(A);
-    Tests.Append(B.Length == 1 && B.GetChunk(0)->Value == 19U);
+    B.add_integer_signed(A);
+    Tests.Append(B.length == 1 && B.get_chunk(0)->value == 19U);
     Print(B,&StringArena);
 
-    A.Neg();
-    Tests.Append(A.Length == 1 && A.GetChunk(0)->Value == 9U && A.IsNegative);
+    A.neg();
+    Tests.Append(A.length == 1 && A.get_chunk(0)->value == 9U && A.IsNegative);
     Print(A,&StringArena);
 
     {
-        A.Set(0x1, false, 0);
-        B.Set(0x2, true, 1);
+        A.set(0x1, false, 0);
+        B.set(0x2, true, 1);
         Print(A, &StringArena);
         Print(B, &StringArena);
-        bool is_abs_a_less_than_abs_b = A.LessThanIntegerUnsigned(B);
-        bool is_abs_b_less_than_abs_a = B.LessThanIntegerUnsigned(A);
+        bool is_abs_a_less_than_abs_b = A.less_than_integer_unsigned(B);
+        bool is_abs_b_less_than_abs_a = B.less_than_integer_unsigned(A);
         Tests.Append(true == is_abs_a_less_than_abs_b);
         Tests.Append(false == is_abs_b_less_than_abs_a);
         std::cout << "Abs( " << string(A) << " ) < Abs( " << string(B) << " ) == " << is_abs_a_less_than_abs_b << "\n";
@@ -145,10 +145,10 @@ i32 Test_big_decimal(bool only_errors = false) {
     }
 
     {
-        B.Neg();
+        B.neg();
         Print(B,&StringArena);
-        bool is_a_less_than_b = A.LessThanIntegerSigned(B);
-        bool is_b_less_than_a = B.LessThanIntegerSigned(A);
+        bool is_a_less_than_b = A.less_than_integer_signed(B);
+        bool is_b_less_than_a = B.less_than_integer_signed(A);
         Tests.Append(true == is_a_less_than_b);
         Tests.Append(false == is_b_less_than_a);
         std::cout << string(A) << " < " << string(B) << " == " << is_a_less_than_b << "\n";
@@ -156,11 +156,11 @@ i32 Test_big_decimal(bool only_errors = false) {
     }
     {
 
-        A.Set(0x1, true, 0);
-        B.Set(0x2, true, 0);
+        A.set(0x1, true, 0);
+        B.set(0x2, true, 0);
         // -1 < -2 == false?
-        bool is_a_less_than_b = A.LessThanIntegerSigned(B);
-        bool is_b_less_than_a = B.LessThanIntegerSigned(A);
+        bool is_a_less_than_b = A.less_than_integer_signed(B);
+        bool is_b_less_than_a = B.less_than_integer_signed(A);
         Tests.Append(false == is_a_less_than_b);
         Tests.Append(true == is_b_less_than_a);
         std::cout << string(A) << " < " << string(B) << " == " << is_a_less_than_b << "\n";
@@ -169,11 +169,11 @@ i32 Test_big_decimal(bool only_errors = false) {
 
     {
 
-        A.Set(0x2, true, 0);
-        B.Set(0x1, true, 0);
+        A.set(0x2, true, 0);
+        B.set(0x1, true, 0);
         // -2 >= -1 == false?
-        bool is_a_greater_equal_b = A.GreaterEqualsInteger(B);
-        bool is_b_greater_equal_a = B.GreaterEqualsInteger(A);
+        bool is_a_greater_equal_b = A.greater_equals_integer(B);
+        bool is_b_greater_equal_a = B.greater_equals_integer(A);
         std::cout << "Tests #" << Tests.TestCount << " and #" << (Tests.TestCount+1) << " - Greaterequal\n";
         Tests.Append(!is_a_greater_equal_b);
         Tests.Append(is_b_greater_equal_a);
@@ -182,222 +182,222 @@ i32 Test_big_decimal(bool only_errors = false) {
     }
 
     //trying to get non-existent chunks will return a common fallback
-    Tests.Append(B.GetChunk(1) == B.GetChunk(12345) && B.GetChunk(1) == nullptr);
+    Tests.Append(B.get_chunk(1) == B.get_chunk(12345) && B.get_chunk(1) == nullptr);
     Print(B,&StringArena);
 
 
 
-    //AddIntegerSigned(+,+) 1,1 -> 2 blocks
-    A.Set(MAX_UINT32, false, 0);
-    B.Set(0x1, false, 0) ;
-    A.AddIntegerSigned(B);
+    //add_integer_signed(+,+) 1,1 -> 2 blocks
+    A.set(MAX_UINT32, false, 0);
+    B.set(0x1, false, 0) ;
+    A.add_integer_signed(B);
     {
         // 0xFFFFFFFF + 1 = 0x1'0000'0000
         u32 ExpectedValues[] = {0,1};
-        Expected.Set(ExpectedValues, ArrayCount(ExpectedValues));
+        Expected.set(ExpectedValues, ArrayCount(ExpectedValues));
         CheckA();
     }
 
 
-    //AddIntegerSigned(+,+) 2,1 -> 2 blocks
-    A.AddIntegerSigned(B);
+    //add_integer_signed(+,+) 2,1 -> 2 blocks
+    A.add_integer_signed(B);
     {
         // 0x1'0000'0000 + 1 = 0x1'0000'0001
         u32 ExpectedValues[] = {1,1};
-        Expected.Set(ExpectedValues, ArrayCount(ExpectedValues));
+        Expected.set(ExpectedValues, ArrayCount(ExpectedValues));
         CheckA();
     }
 
-    //AddIntegerSigned(+,+) 1,2 -> 2 blocks
-    B.AddIntegerSigned(A);
+    //add_integer_signed(+,+) 1,2 -> 2 blocks
+    B.add_integer_signed(A);
     {
         // 1 + 0x1'0000'0001 = 0x1'0000'0002
         u32 EVals[] = {2,1};
-        Expected.Set(EVals,ArrayCount(EVals));
-        Tests.Append(B.EqualsInteger(Expected));
+        Expected.set(EVals,ArrayCount(EVals));
+        Tests.Append(B.equals_integer(Expected));
     }
 
 
     {
-        //AddIntegerSigned(+,+) 1,1 -> 2 blocks
+        //add_integer_signed(+,+) 1,1 -> 2 blocks
         u32 AVals[] = {0xFFFFFFFE};
-        A.Set(AVals, 1);
-        B.Set(0x4);
+        A.set(AVals, 1);
+        B.set(0x4);
         u32 EVals[] = {2,1};
-        Expected.Set(EVals,ArrayCount(EVals));
-        A.AddIntegerSigned(B);
+        Expected.set(EVals,ArrayCount(EVals));
+        A.add_integer_signed(B);
         CheckA();
     }
 
-    //AddIntegerSigned(+,-)
-    A.Set(0);
-    B.Set(1);
-    B.Neg();
-    A.AddIntegerSigned(B);
+    //add_integer_signed(+,-)
+    A.set(0);
+    B.set(1);
+    B.neg();
+    A.add_integer_signed(B);
     {
         // 0 + -1 = -1
         u32 EVals[] = {1};
-        Expected.Set(EVals,ArrayCount(EVals),true);
-        Tests.Append(A.EqualsInteger(Expected));
-        Tests.Append(B.EqualsInteger(Expected));
+        Expected.set(EVals,ArrayCount(EVals),true);
+        Tests.Append(A.equals_integer(Expected));
+        Tests.Append(B.equals_integer(Expected));
     }
 
 
 
-    //AddIntegerSigned(-,+)
-    A.Set(1,true);
-    B.Set(2);
-    A.AddIntegerSigned(B);
-    Expected.Set(1);
-    Tests.Append(A.EqualsInteger( Expected));
+    //add_integer_signed(-,+)
+    A.set(1,true);
+    B.set(2);
+    A.add_integer_signed(B);
+    Expected.set(1);
+    Tests.Append(A.equals_integer( Expected));
 
-    //AddIntegerSigned(-,-)
-    A.Set(2,true);
-    B.Set(2,true);
-    A.AddIntegerSigned(B);
-    Expected.Set(4,true);
-    Tests.Append(A.EqualsInteger(Expected));
+    //add_integer_signed(-,-)
+    A.set(2,true);
+    B.set(2,true);
+    A.add_integer_signed(B);
+    Expected.set(4,true);
+    Tests.Append(A.equals_integer(Expected));
 
 
     {
-    //AddIntegerSigned(-,-) Length 1->2
+    //add_integer_signed(-,-) length 1->2
         u32 Vals[] = {0xFFFFFFFF};
-        A.Set(Vals, 1);
+        A.set(Vals, 1);
 
-        A.Set(1,true);
-        B.Set(Vals,1);
-        B.Neg();
-        A.AddIntegerSigned(B);
+        A.set(1,true);
+        B.set(Vals,1);
+        B.neg();
+        A.add_integer_signed(B);
         u32 EVals[] = {0,1};
-        Expected.Set(EVals, ArrayCount(EVals), true);
-//        Expected.Neg();
+        Expected.set(EVals, ArrayCount(EVals), true);
+//        Expected.neg();
         CheckA();
     }
 
 
-    //SubIntegerSigned(+,+) >0 -> >0
-    A.Set(123,0,Log2I(123));
-    B.Set(23,0,Log2I(23));
-    A.SubIntegerSigned(B);
+    //sub_integer_signed(+,+) >0 -> >0
+    A.set(123,0,Log2I(123));
+    B.set(23,0,Log2I(23));
+    A.sub_integer_signed(B);
     {
         // 123-23 = 100
         u32 ExpectedValues[] = {100};
-        Expected.Set(ExpectedValues, ArrayCount(ExpectedValues));
+        Expected.set(ExpectedValues, ArrayCount(ExpectedValues));
         CheckA();
     }
 
-    //SubIntegerSigned(+,+) >0 to <0
-    A.Set(0);
-    B.Set(1);
-    A.SubIntegerSigned(B);
+    //sub_integer_signed(+,+) >0 to <0
+    A.set(0);
+    B.set(1);
+    A.sub_integer_signed(B);
     {
         // 0 - 1 = -1
         u32 EVals[] = {1};
-        Expected.Set(EVals, ArrayCount(EVals), true);
+        Expected.set(EVals, ArrayCount(EVals), true);
         CheckA();
     }
 
     {
-        //SubIntegerSigned(+,-)
-        cout << "SubIntegerSigned(+,-), Test# " << Tests.TestCount << "...\n";
-        A.Set(1);
-        B.Set(1,true);
-        Expected.Set(2);
-        A.SubIntegerSigned(B);
+        //sub_integer_signed(+,-)
+        cout << "sub_integer_signed(+,-), Test# " << Tests.TestCount << "...\n";
+        A.set(1);
+        B.set(1,true);
+        Expected.set(2);
+        A.sub_integer_signed(B);
         CheckA();
     }
 
     {
         //Sub (x,x) == 0 for long chains
-        cout << "Test# " << Tests.TestCount << " : A.SubIntegerSigned(B) == 0 (where A==B) for long chains ...\n";
+        cout << "Test# " << Tests.TestCount << " : A.sub_integer_signed(B) == 0 (where A==B) for long chains ...\n";
         u32 ValuesA[] { 0x0000'0000, 0x0000'0000, 0x0000'0000, 0x8000'0000 };
-        A.Set(ValuesA,ArrayCount(ValuesA));
-        B.Set(ValuesA,ArrayCount(ValuesA));
-        A.SubIntegerSigned(B);
-        Expected.Set(0);
+        A.set(ValuesA,ArrayCount(ValuesA));
+        B.set(ValuesA,ArrayCount(ValuesA));
+        A.sub_integer_signed(B);
+        Expected.set(0);
         CheckA();
 
-        cout << "Test# " << Tests.TestCount << " : A.SubIntegerSigned(A) == 0 for long chains ...\n";
-        A.Set(ValuesA,ArrayCount(ValuesA));
-        A.SubIntegerSigned(A);
-        Tests.Append(A.IsZero());
+        cout << "Test# " << Tests.TestCount << " : A.sub_integer_signed(A) == 0 for long chains ...\n";
+        A.set(ValuesA,ArrayCount(ValuesA));
+        A.sub_integer_signed(A);
+        Tests.Append(A.is_zero());
 
-        cout << "Test# " << Tests.TestCount << " : Sub for long chains changes the Length and uses carries ...\n";
-        A.Set(ValuesA,ArrayCount(ValuesA));
+        cout << "Test# " << Tests.TestCount << " : Sub for long chains changes the length and uses carries ...\n";
+        A.set(ValuesA,ArrayCount(ValuesA));
         u32 ValuesB[] { 0x0000'0000, 0x8000'0000, 0xFFFF'FFFF, 0x7FFF'FFFF };
-        B.Set(ValuesB, ArrayCount(ValuesB));
-        A.SubIntegerSigned(B);
+        B.set(ValuesB, ArrayCount(ValuesB));
+        A.sub_integer_signed(B);
         u32 ValuesExpected[] { 0x0000'0000, 0x8000'0000 };
-        Expected.Set(ValuesExpected,ArrayCount(ValuesExpected));
+        Expected.set(ValuesExpected,ArrayCount(ValuesExpected));
         CheckA();
     }
 
-    //SubIntegerSigned(-,+) Length 1->2
-    A.Set(2,true);
+    //sub_integer_signed(-,+) length 1->2
+    A.set(2,true);
     u32 Vals[] = {0xFFFFffff};
-    B.Set(Vals, 1);
-    A.SubIntegerSigned(B);
+    B.set(Vals, 1);
+    A.sub_integer_signed(B);
     u32 EVals[] = {1,1};
-    Expected.Set(EVals, ArrayCount(EVals), true);
-    Tests.Append(A.EqualsInteger( Expected));
+    Expected.set(EVals, ArrayCount(EVals), true);
+    Tests.Append(A.equals_integer( Expected));
 
-    //SubIntegerSigned(-,-)
-    A.Set(2,true);
-    B.Set(1,true);
-    A.SubIntegerSigned(B);
-    Expected.Set(1,true);
+    //sub_integer_signed(-,-)
+    A.set(2,true);
+    B.set(1,true);
+    A.sub_integer_signed(B);
+    Expected.set(1,true);
     CheckA();
 
-    B.Set(2,true);
-    A.SubIntegerSigned(B);
-    Expected.Set(1);
+    B.set(2,true);
+    A.sub_integer_signed(B);
+    Expected.set(1);
     CheckA();
 
 
-    A.Set(1);
-    A.AddIntegerSigned(A);
-    Expected.Set(2);
+    A.set(1);
+    A.add_integer_signed(A);
+    Expected.set(2);
     CheckA();
 
-    A.Set(1);
-    A.SubIntegerSigned(A);
-    Expected.Set(0);
+    A.set(1);
+    A.sub_integer_signed(A);
+    Expected.set(0);
     CheckA();
 
     {
     //#29
     u32 AVals[] = {0,1};
-    A.Set(AVals, ArrayCount(AVals));
+    A.set(AVals, ArrayCount(AVals));
     u32 Vals[] = {0xFFFFFFFF};
-    Expected.Set(Vals,1);
-    B.Set(1);
-    Expected.AddIntegerSigned(B);
+    Expected.set(Vals,1);
+    B.set(1);
+    Expected.add_integer_signed(B);
     CheckA();
     }
 
     //test that Add won't allocate chunks when there are enough.
     {
-        Big_Dec_Chunk max_unsigned = 0;
+        ChunkBits max_unsigned = 0;
         --max_unsigned ;
-        auto X = Big_Dec_Arena( virtual_alloc_arena_alloc_1, max_unsigned);
+        auto X = BigDec_Arena( virtual_alloc_arena_alloc_1, max_unsigned);
 
         bool AllTestsPass = true;
-        bool InitialCapacityIsOne = X.Length == X.m_chunks_capacity && X.Length == 1;
+        bool InitialCapacityIsOne = X.length == X.m_chunks_capacity && X.length == 1;
         AllTestsPass &= InitialCapacityIsOne;
 
-        auto Y = Big_Dec_Arena( virtual_alloc_arena_alloc_1, 1);
-        X.AddIntegerSigned(Y);
+        auto Y = BigDec_Arena( virtual_alloc_arena_alloc_1, 1);
+        X.add_integer_signed(Y);
         //ensure that allocation has happened
-        bool RequiredCapcaityGotAllocated = X.Length == X.m_chunks_capacity && X.Length == 2;
+        bool RequiredCapcaityGotAllocated = X.length == X.m_chunks_capacity && X.length == 2;
         AllTestsPass &= RequiredCapcaityGotAllocated;
 
-        X.Set(max_unsigned);
-        bool SetPreservesCapacity = X.Length == 1 && X.m_chunks_capacity == 2;
+        X.set(max_unsigned);
+        bool SetPreservesCapacity = X.length == 1 && X.m_chunks_capacity == 2;
         AllTestsPass &= SetPreservesCapacity;
 
-        X.AddIntegerSigned(Y);
+        X.add_integer_signed(Y);
         //ensure no memory leak on overflow
-        bool OverflowUsesAvailableCapacity = X.Length == X.m_chunks_capacity && X.Length == 2;
+        bool OverflowUsesAvailableCapacity = X.length == X.m_chunks_capacity && X.length == 2;
         AllTestsPass &= OverflowUsesAvailableCapacity;
 
         Tests.Append(AllTestsPass);
@@ -410,67 +410,67 @@ i32 Test_big_decimal(bool only_errors = false) {
     FullMulN<u32>(0xFFFFFFFF,0xFFFFFFFF, FullProd);
     Tests.Append(FullProd[0] == 0x00000001 && FullProd[1] == 0xFFFF'FFFE);
 
-    A.Set(1);
-    B.Set(1,true);
-    A.MulInteger(B);
-    Expected.Set(1,true);
+    A.set(1);
+    B.set(1,true);
+    A.mul_integer(B);
+    Expected.set(1,true);
     CheckA();
 
-    A.Set(1,true);
-    B.Set(1);
-    A.MulInteger(B);
-    Expected.Set(1,true);
+    A.set(1,true);
+    B.set(1);
+    A.mul_integer(B);
+    Expected.set(1,true);
     CheckA();
 
-    A.Set(1,true);
-    B.Set(1,true);
-    A.MulInteger(B);
-    Expected.Set(1);
+    A.set(1,true);
+    B.set(1,true);
+    A.mul_integer(B);
+    Expected.set(1);
     CheckA();
 
     {
         cout << "Test#" << Tests.TestCount << "\n";
         u32 ValA[] = {4'000'000'000U};
-        A.Set(ValA,1); //0xee6b2800
-        B.Set(10);
-        A.MulInteger(B); //0x9502f9000 == { 0x502f9000 , 0x9 } == { 1345294336 , 9}
+        A.set(ValA,1); //0xee6b2800
+        B.set(10);
+        A.mul_integer(B); //0x9502f9000 == { 0x502f9000 , 0x9 } == { 1345294336 , 9}
         u32 EVals[] = {1345294336,9};
-        Expected.Set(EVals, ArrayCount(EVals));
-        Tests.Append(A.EqualsInteger( Expected));
+        Expected.set(EVals, ArrayCount(EVals));
+        Tests.Append(A.equals_integer( Expected));
     }
 
     {
         u32 Vals[] = {0xFFFF'FFFF};
-        A.Set(Vals,1);
-    //    B.Set(A); //TODO(##2023 12 01) implement
-        B.Set(Vals,1);
-        A.MulInteger(B);
+        A.set(Vals,1);
+    //    B.set(A); //TODO(##2023 12 01) implement
+        B.set(Vals,1);
+        A.mul_integer(B);
         u32 EVals[] = {1,0xFFFF'FFFE};
-        Expected.Set(EVals, ArrayCount(EVals));
-        Tests.Append(A.EqualsInteger(Expected));
+        Expected.set(EVals, ArrayCount(EVals));
+        Tests.Append(A.equals_integer(Expected));
         cout << "Mul 0xFFFF'FFFF 0xFFFF'FFFF => {1,0xFFFF'FFFE}  " << '\n';
         cout << std::hex <<  string(Expected) << std::dec << '\n';
     }
 
     {
         u32 ValA[] = {0x1000'0000};
-        A.Set(ValA,1);
-        B.Set(0x1000,0,Log2I(0x1000));
+        A.set(ValA,1);
+        B.set(0x1000,0,Log2I(0x1000));
         // 1000'0000'000
         //=100'0000'0000
-        Expected.Set(0x100'0000'0000ull);
-        A.MulInteger(B);
+        Expected.set(0x100'0000'0000ull);
+        A.mul_integer(B);
         CheckA();
     }
 
     {
         u32 ValuesA[] = {0,0,0x1000'0000};
         u32 ValuesB[] = {0,0x1000'0000};
-        A.Set(ValuesA, ArrayCount(ValuesA));
-        B.Set(ValuesB, ArrayCount(ValuesB));
+        A.set(ValuesA, ArrayCount(ValuesA));
+        B.set(ValuesB, ArrayCount(ValuesB));
         u32 ValuesExp[] = {0,0,0,0,0x100'0000};
-        A.MulInteger(B);
-        Expected.Set(ValuesExp, ArrayCount(ValuesExp));
+        A.mul_integer(B);
+        Expected.set(ValuesExp, ArrayCount(ValuesExp));
         CheckA();
     }
 
@@ -478,22 +478,22 @@ i32 Test_big_decimal(bool only_errors = false) {
     { //TODO(##2023 12 17): verify all bits, not just the last N ones
         /*NOTE(ArokhSlade##2024 09 30): BIN(10^k) ends with 10^k, e.g. 10_dec = 1010_bin, 100_dec = 0110'0100_bin, 1000_dec = something'something'1000_bin, ...
         */
-        A.Set(1);
-        B.Set(10,0,3);
+        A.set(1);
+        B.set(10,0,3);
         for (u32 Pow = 1 ; Pow < 100 ; ++Pow) {
-            A.MulInteger(B);
+            A.mul_integer(B);
             cout << string(A) << '\n';
-            u32 LeastBitIdx = Pow%Big_Dec_Chunk_Width;
-            u32 LeastChunkIdx = Pow/Big_Dec_Chunk_Width;;
+            u32 LeastBitIdx = Pow%CHUNK_WIDTH;
+            u32 LeastChunkIdx = Pow/CHUNK_WIDTH;;
 
-            bool LastNBitsGood = A.GetChunk(LeastChunkIdx)->Value & (1ull<<LeastBitIdx);
+            bool LastNBitsGood = A.get_chunk(LeastChunkIdx)->value & (1ull<<LeastBitIdx);
             if (!LastNBitsGood) {
                 cout << "ERROR: " << Pow << ", " << Pow << '\n';
             }
             for (u32 BitIdx = 0 ; BitIdx < Pow-1 ; ++BitIdx) {
-                u32 LocalBitIdx = BitIdx%Big_Dec_Chunk_Width;;
-                u32 ChunkIdx = BitIdx/Big_Dec_Chunk_Width;;
-                LastNBitsGood = LastNBitsGood && ~(A.GetChunk(ChunkIdx)->Value)&(1ull<<LocalBitIdx);
+                u32 LocalBitIdx = BitIdx%CHUNK_WIDTH;;
+                u32 ChunkIdx = BitIdx/CHUNK_WIDTH;;
+                LastNBitsGood = LastNBitsGood && ~(A.get_chunk(ChunkIdx)->value)&(1ull<<LocalBitIdx);
                 if (!LastNBitsGood) {
                     cout << "ERROR: " << Pow << ", " << BitIdx << '\n';
                 }
@@ -502,52 +502,52 @@ i32 Test_big_decimal(bool only_errors = false) {
         }
     }
 
-    //TODO(##2023 12 04): test CopyTo(), make sure allocations happen only when necessary, and that length and capacity have correct values in all scenarios
+    //TODO(##2023 12 04): test copy_to(), make sure allocations happen only when necessary, and that length and capacity have correct values in all scenarios
 
-    //tests for ShiftLeft(N)
+    //tests for shift_left(N)
 
     {
         //case 1: new leading idx > old leading idx
         u32 ValuesA[] {0xF000F000, 0x0000FFFF};
-        A.Set(ValuesA, ArrayCount(ValuesA));
+        A.set(ValuesA, ArrayCount(ValuesA));
         u32 ShiftAmount = 16;
         u32 ValuesExpected[] {0xF000'0000, 0xFFFFF000 };
-        Expected.Set(ValuesExpected, ArrayCount(ValuesExpected));
-        A.ShiftLeft(ShiftAmount);
+        Expected.set(ValuesExpected, ArrayCount(ValuesExpected));
+        A.shift_left(ShiftAmount);
         CheckA();
     }
 
     {
         //case 2: new leading idx < old leading idx
         u32 ValuesA[] {0xF000F000, 0x0000FFFF};
-        A.Set(ValuesA, ArrayCount(ValuesA));
+        A.set(ValuesA, ArrayCount(ValuesA));
         u32 ShiftAmount = 24;
         u32 ValuesExpected[] {0x0000'0000, 0xFFF0'00F0, 0x0000'00FF };
-        Expected.Set(ValuesExpected, ArrayCount(ValuesExpected));
-        A.ShiftLeft(ShiftAmount);
+        Expected.set(ValuesExpected, ArrayCount(ValuesExpected));
+        A.shift_left(ShiftAmount);
         CheckA();
     }
 
     {
         //case 3: new leading idx == old leading idx
         u32 ValuesA[] {0xF000F000, 0x0000FFFF};
-        A.Set(ValuesA, ArrayCount(ValuesA));
+        A.set(ValuesA, ArrayCount(ValuesA));
         u32 ShiftAmount = 32;
         u32 ValuesExpected[] {0x0000'0000, 0xF000'F000, 0x0000FFFF };
-        Expected.Set(ValuesExpected, ArrayCount(ValuesExpected));
-        A.ShiftLeft(ShiftAmount);
+        Expected.set(ValuesExpected, ArrayCount(ValuesExpected));
+        A.shift_left(ShiftAmount);
         CheckA();
     }
 
     {
         //case 4
-        A.Set(1);
-        A.CopyTo(&OldA);
+        A.set(1);
+        A.copy_to(&OldA);
         u32 ShiftAmount = 132;
         u32 ValuesExpected[] {0x0000'0000, 0x0000'0000, 0x0000'0000, 0x0000'0000, 0x10 };
-        Expected.Set(ValuesExpected, ArrayCount(ValuesExpected));
-        A.ShiftLeft(ShiftAmount);
-        char TestName[] = "ShiftLeft 1<<132";
+        Expected.set(ValuesExpected, ArrayCount(ValuesExpected));
+        A.shift_left(ShiftAmount);
+        char TestName[] = "shift_left 1<<132";
         PrintTestA(TestName);
         CheckA();
     }
@@ -557,9 +557,9 @@ i32 Test_big_decimal(bool only_errors = false) {
         cout << "Test#" << Tests.TestCount << " : 1 << [0...255]\n";
         bool TestPassed = true;
         for (i32 i = 0 ; i<256 ; ++i) {
-            A.Set(1);
-            A.ShiftLeft(i);
-            i32 MSB = A.GetMSB();
+            A.set(1);
+            A.shift_left(i);
+            i32 MSB = A.get_msb();
             TestPassed &= MSB == i;
             cout << "1<<" << i << " = " << string(A) << "\n";
         }
@@ -568,10 +568,10 @@ i32 Test_big_decimal(bool only_errors = false) {
 
     {
         //print different shifts
-        A.Set(1);
+        A.set(1);
         for (u32 i = 0 ; i < 64 ; ++i) {
             cout << string(A) << '\n';
-            A.ShiftLeft(i);
+            A.shift_left(i);
         }
         cout << string(A) << '\n';
     }
@@ -580,130 +580,130 @@ i32 Test_big_decimal(bool only_errors = false) {
         //print different shifts
         cout << string(A) << '\n';
         for (u32 i = 0 ; i < 64 ; ++i) {
-            A.ShiftRight(64-1-i);
+            A.shift_right(64-1-i);
             cout << string(A) << '\n';
         }
-        A.ShiftRight(1);
+        A.shift_right(1);
         cout << string(A) << '\n';
     }
 
 
-    //tests for ShiftRight(N)
+    //tests for shift_right(N)
 
     {
         u32 ValuesA[] {0xFFFF'FFFF, 0xFFFF'FFFF, 0xFFFF'FFFF, 0xFFFF'FFFF, };
-        A.Set(ValuesA, ArrayCount(ValuesA));
+        A.set(ValuesA, ArrayCount(ValuesA));
         u32 ShiftAmount = 0;
         u32 ValuesExpected[] {0xFFFF'FFFF, 0xFFFF'FFFF, 0xFFFF'FFFF, 0xFFFF'FFFF, };
-        Expected.Set(ValuesExpected, ArrayCount(ValuesExpected));
-        A.ShiftRight(ShiftAmount);
+        Expected.set(ValuesExpected, ArrayCount(ValuesExpected));
+        A.shift_right(ShiftAmount);
         CheckA();
     }
 
     {
         u32 ValuesA[] {0x1};
-        A.Set(ValuesA, ArrayCount(ValuesA));
+        A.set(ValuesA, ArrayCount(ValuesA));
         u32 ShiftAmount = 1;
         u32 ValuesExpected[] {0x0};
-        Expected.Set(ValuesExpected, ArrayCount(ValuesExpected));
-        A.ShiftRight(ShiftAmount);
+        Expected.set(ValuesExpected, ArrayCount(ValuesExpected));
+        A.shift_right(ShiftAmount);
         CheckA();
     }
 
     {
         u32 ValuesA[] {0x2};
-        A.Set(ValuesA, ArrayCount(ValuesA));
+        A.set(ValuesA, ArrayCount(ValuesA));
         u32 ShiftAmount = 1;
         u32 ValuesExpected[] {0x1};
-        Expected.Set(ValuesExpected, ArrayCount(ValuesExpected));
-        A.ShiftRight(ShiftAmount);
+        Expected.set(ValuesExpected, ArrayCount(ValuesExpected));
+        A.shift_right(ShiftAmount);
         CheckA();
     }
 
     {
         u32 ValuesA[] {0x00000000, 0xFFFFFFFF};
-        A.Set(ValuesA, ArrayCount(ValuesA));
+        A.set(ValuesA, ArrayCount(ValuesA));
         u32 ShiftAmount = 32;
         u32 ValuesExpected[] {0xFFFF'FFFF};
-        Expected.Set(ValuesExpected, ArrayCount(ValuesExpected));
-        A.ShiftRight(ShiftAmount);
+        Expected.set(ValuesExpected, ArrayCount(ValuesExpected));
+        A.shift_right(ShiftAmount);
         CheckA();
     }
 
     {
         u32 ValuesA[] {0x8000'8000, 0xFFFF'0000, 0xAAAA'AAAA};
-        A.Set(ValuesA, ArrayCount(ValuesA));
+        A.set(ValuesA, ArrayCount(ValuesA));
         u32 ShiftAmount = 48;
         u32 ValuesExpected[] {0xAAAA'FFFF, 0x0000'AAAA };
-        Expected.Set(ValuesExpected, ArrayCount(ValuesExpected));
-        A.ShiftRight(ShiftAmount);
+        Expected.set(ValuesExpected, ArrayCount(ValuesExpected));
+        A.shift_right(ShiftAmount);
         CheckA();
     }
 
     {
         u32 ValuesA[] {0x0000'0000, 0x0000'8000};
-        A.Set(ValuesA, ArrayCount(ValuesA));
+        A.set(ValuesA, ArrayCount(ValuesA));
         u32 ShiftAmount = 17;
         u32 ValuesExpected[] {0x4000'0000 };
-        Expected.Set(ValuesExpected, ArrayCount(ValuesExpected));
-        A.ShiftRight(ShiftAmount);
+        Expected.set(ValuesExpected, ArrayCount(ValuesExpected));
+        A.shift_right(ShiftAmount);
         CheckA();
     }
 
     {
         //print different shifts
         u32 ValuesA[] {0x5555'8888, 0xFFFF'6666, 0xAAAA'9999};
-        A.Set(ValuesA, ArrayCount(ValuesA));
+        A.set(ValuesA, ArrayCount(ValuesA));
         for (u32 i = 0 ; i <= 96 ; ++i) {
             cout << string(A) << '\n';
-            A.ShiftRight(1);
+            A.shift_right(1);
         }
         cout << string(A) << '\n';
     }
     cout << Tests.TestCount << "\n";
-    Big_Dec_Arena ExpectedInteger ( virtual_alloc_arena_alloc_1, 0);
-    Big_Dec_Arena ExpectedFraction { virtual_alloc_arena_alloc_1, 0};
-    Big_Dec_Arena QuoInt { virtual_alloc_arena_alloc_1, 0};
-    Big_Dec_Arena QuoFrac { virtual_alloc_arena_alloc_1, 0};
+    BigDec_Arena ExpectedInteger ( virtual_alloc_arena_alloc_1, 0);
+    BigDec_Arena ExpectedFraction { virtual_alloc_arena_alloc_1, 0};
+    BigDec_Arena QuoInt { virtual_alloc_arena_alloc_1, 0};
+    BigDec_Arena QuoFrac { virtual_alloc_arena_alloc_1, 0};
     auto CheckQuo = [&](){
         //The Algorithm is optimized to append multiple 0's in a row when possible.
         //we truncate the result if its precision is higher than that of Expected
-        int Diff = QuoFrac.CountBits()-ExpectedFraction.CountBits();
+        int Diff = QuoFrac.count_bits()-ExpectedFraction.count_bits();
         if (Diff < 0) {
             //Quo was not computed to the desired Precision
             Tests.Append(false);
             return;
         }
-        QuoFrac.ShiftRight(Diff);
-        Tests.Append(  QuoInt.EqualsInteger( ExpectedInteger ) &&
-                       QuoFrac.EqualsInteger( ExpectedFraction ) );
+        QuoFrac.shift_right(Diff);
+        Tests.Append(  QuoInt.equals_integer( ExpectedInteger ) &&
+                       QuoFrac.equals_integer( ExpectedFraction ) );
     };
 
     {
-        A.Set(24);
-        B.Set(4);
-        ExpectedInteger.Set(6);
-        ExpectedFraction.Set(0);
-        DivInteger<Arena_Alloc_Of_Big_Dec_Val>(A, B, QuoInt, QuoFrac);
+        A.set(24);
+        B.set(4);
+        ExpectedInteger.set(6);
+        ExpectedFraction.set(0);
+        div_integer<ArenaChunkAlloc>(A, B, QuoInt, QuoFrac);
         CheckQuo();
     }
 
     {
-        A.Set(24);
-        B.Set(24);
-        ExpectedInteger.Set(1);
-        ExpectedFraction.Set(0);
-        DivInteger<Arena_Alloc_Of_Big_Dec_Val>(A, B, QuoInt, QuoFrac);
+        A.set(24);
+        B.set(24);
+        ExpectedInteger.set(1);
+        ExpectedFraction.set(0);
+        div_integer<ArenaChunkAlloc>(A, B, QuoInt, QuoFrac);
         CheckQuo();
     }
 
     {
-        A.Set(1);
-        B.Set(2);
-        ExpectedInteger.Set(0);
-        ExpectedFraction.Set(1);
+        A.set(1);
+        B.set(2);
+        ExpectedInteger.set(0);
+        ExpectedFraction.set(1);
         ExpectedFraction.Exponent = -1;
-        DivInteger<Arena_Alloc_Of_Big_Dec_Val>(A, B, QuoInt, QuoFrac);
+        div_integer<ArenaChunkAlloc>(A, B, QuoInt, QuoFrac);
         cout << "Test#" << Tests.TestCount << "\n";
         CheckQuo();
 
@@ -712,80 +712,80 @@ i32 Test_big_decimal(bool only_errors = false) {
     {
 
         // 1478/2048=0.7216796875 = 0.10'1110'0011 ( BIN 10'1110'0011 = DEC 739 )
-        A.Set(1478);
-        B.Set(2046);
-        ExpectedInteger.Set(0);
-        ExpectedFraction.Set(739);
+        A.set(1478);
+        B.set(2046);
+        ExpectedInteger.set(0);
+        ExpectedFraction.set(739);
         ExpectedFraction.Exponent = -1;
-        DivInteger(A, B, QuoInt, QuoFrac, 10);
+        div_integer(A, B, QuoInt, QuoFrac, 10);
         CheckQuo();
     }
 
 
     {
         //3456/2123=1.62788506829957602128899907257...
-        A.Set(3456);
-        B.Set(2123);
-        ExpectedInteger.Set(1);
+        A.set(3456);
+        B.set(2123);
+        ExpectedInteger.set(1);
         u32 FracVal[]{0b1010'00001011'11010001'00110110'1001};
-        ExpectedFraction.Set(FracVal,1);
+        ExpectedFraction.set(FracVal,1);
         ExpectedFraction.Exponent = -1;
-        DivInteger(A, B, QuoInt, QuoFrac, 32);
+        div_integer(A, B, QuoInt, QuoFrac, 32);
         CheckQuo();
     }
 
     {
         //3456/2123=1.62788506829957602128899907257...
-        A.Set(3456,1);
-        B.Set(2123,1);
-        ExpectedInteger.Set(1);     //1010'00001011'11010001'00110110'1001    1111'11100100'11111101
+        A.set(3456,1);
+        B.set(2123,1);
+        ExpectedInteger.set(1);     //1010'00001011'11010001'00110110'1001    1111'11100100'11111101
         u32 FractionChunks[2] = {0b00110110'10011111'11100100'11111101, 0b1010'00001011'11010001};
-        ExpectedFraction.Set(FractionChunks, ArrayCount(FractionChunks));
+        ExpectedFraction.set(FractionChunks, ArrayCount(FractionChunks));
         ExpectedFraction.Exponent = -1;
-        DivInteger(A, B, QuoInt, QuoFrac, 52);
+        div_integer(A, B, QuoInt, QuoFrac, 52);
         CheckQuo();
     }
     {
         //#57
         cout << "Test#" << Tests.TestCount << "\n";
-        A.Set(10,1);
-        B.Set(4);
-        ExpectedInteger.Set(2, 1, 1);
+        A.set(10,1);
+        B.set(4);
+        ExpectedInteger.set(2, 1, 1);
         u32 FractionChunks[1] = {0b1};
-        ExpectedFraction.Set(FractionChunks, ArrayCount(FractionChunks));
+        ExpectedFraction.set(FractionChunks, ArrayCount(FractionChunks));
         ExpectedFraction.Exponent = -1;
-        DivInteger(A, B, QuoInt, QuoFrac, 1);
+        div_integer(A, B, QuoInt, QuoFrac, 1);
         CheckQuo();
     }
 
     {
-        A.Set(10);
-        B.Set(3,1);
-        ExpectedInteger.Set(3,1,Log2I(3)); //dec 3.3333333... == bin 11.0101010101...
+        A.set(10);
+        B.set(3,1);
+        ExpectedInteger.set(3,1,Log2I(3)); //dec 3.3333333... == bin 11.0101010101...
         u32 FractionChunks[2] = {0b01010101'01010101'01010101'01010101, 0b0101'01010101'01010101};
-        ExpectedFraction.Set(FractionChunks, ArrayCount(FractionChunks));
+        ExpectedFraction.set(FractionChunks, ArrayCount(FractionChunks));
         ExpectedFraction.Exponent = -2;
-        DivInteger(A, B, QuoInt, QuoFrac, 52);
+        div_integer(A, B, QuoInt, QuoFrac, 52);
         CheckQuo();
     }
 
     {
-        A.Set(1);
-        B.Set(1'000'000);
+        A.set(1);
+        B.set(1'000'000);
 
-        DivInteger(A, B, QuoInt, QuoFrac, 52);
-        cout << "1 millionth (fraction part ): " << QuoFrac << ", " << QuoFrac.Exponent << " Exponent, " << QuoFrac.CountBits() << " explicit significant fraction bits" << '\n';
+        div_integer(A, B, QuoInt, QuoFrac, 52);
+        cout << "1 millionth (fraction part ): " << QuoFrac << ", " << QuoFrac.Exponent << " Exponent, " << QuoFrac.count_bits() << " explicit significant fraction bits" << '\n';
 
-        B.Set(1'000'000'000);
-        DivInteger(A, B, QuoInt, QuoFrac, 52);
-        cout << "1 billionth (fraction part ): " << QuoFrac << ", " << QuoFrac.Exponent<< " Exponent, " << QuoFrac.CountBits() << " explicit significant fraction bits" << '\n';
+        B.set(1'000'000'000);
+        div_integer(A, B, QuoInt, QuoFrac, 52);
+        cout << "1 billionth (fraction part ): " << QuoFrac << ", " << QuoFrac.Exponent<< " Exponent, " << QuoFrac.count_bits() << " explicit significant fraction bits" << '\n';
 
-//        B.Set(1'000'000'000'000);
-//        DivInteger(A, B, QuoInt, QuoFrac, 52);
+//        B.set(1'000'000'000'000);
+//        div_integer(A, B, QuoInt, QuoFrac, 52);
 //        cout << "1 trillionth (fraction part ): " << QuoFrac << '\n';
 //
-//        B.Set(1'000'000'000'000'000);
-//        DivInteger(A, B, QuoInt, QuoFrac, 52);
+//        B.set(1'000'000'000'000'000);
+//        div_integer(A, B, QuoInt, QuoFrac, 52);
 //        cout << "1 quadrillionth (fraction part ): " << QuoFrac << '\n';
     }
 
@@ -795,168 +795,168 @@ i32 Test_big_decimal(bool only_errors = false) {
         u32 ValuesA[] {0x8000'0000, 0x0000'0000, 0x0000'0000, 0x8000'0000};
         cout << "Test#" << Tests.TestCount << " : multi block division\n";
         u32 ValuesB[] {0x8000'0000};
-        A.Set(ValuesA, ArrayCount(ValuesA));
-        B.Set(ValuesB, ArrayCount(ValuesB));
+        A.set(ValuesA, ArrayCount(ValuesA));
+        B.set(ValuesB, ArrayCount(ValuesB));
         u32 ValuesExpected[] {0x0000'0001,0x0000'0000,0x0000'0000,0x0000'0001};
-        ExpectedInteger.Set(ValuesExpected, ArrayCount(ValuesExpected));
-        ExpectedFraction.Set(0);
+        ExpectedInteger.set(ValuesExpected, ArrayCount(ValuesExpected));
+        ExpectedFraction.set(0);
         ExpectedFraction.Exponent = 0;
 
-        DivInteger(A, B, QuoInt, QuoFrac, 52);
+        div_integer(A, B, QuoInt, QuoFrac, 52);
         CheckQuo();
     }
 
     {
         //Test copy constructor
         u32 ValuesA[] { 0x0000'0000, 0x0FFFF'FFFF };
-        A.Set(ValuesA, ArrayCount(ValuesA));
+        A.set(ValuesA, ArrayCount(ValuesA));
 
-        Big_Dec_Arena A_ { virtual_alloc_arena_alloc_1,A};
-        //Big_Dec_Arena A__ {A}; //disallowed, no shallow copies, deep copy requires an allocator as parameter.
+        BigDec_Arena A_ { virtual_alloc_arena_alloc_1,A};
+        //BigDec_Arena A__ {A}; //disallowed, no shallow copies, deep copy requires an allocator as parameter.
 
         u32 NewValues[] { 0xFFFF'FFFF, 0x8000'0000 };
-        A_.Set(NewValues,ArrayCount(NewValues));
+        A_.set(NewValues,ArrayCount(NewValues));
         u32 ValuesExpected[] { 0x0000'0000, 0x0FFFF'FFFF };
-        Expected.Set(ValuesExpected, ArrayCount(ValuesExpected));
+        Expected.set(ValuesExpected, ArrayCount(ValuesExpected));
         CheckA();
     }
 
     {
-        //test TruncateTrailingZeroBits (from fractional part)
+        //test truncate_trailing_zero_bits (from fractional part)
 
         u32 ValuesA[] { 0xAAAA'0000, 0xAAAA'AAAA };
-        A.Set(ValuesA, ArrayCount(ValuesA), 0, 47);
-        cout << "Test #" << Tests.TestCount << " : Test TruncateTrailingZeroBits : A = " << string(A);
-        A.TruncateTrailingZeroBits();
+        A.set(ValuesA, ArrayCount(ValuesA), 0, 47);
+        cout << "Test #" << Tests.TestCount << " : Test truncate_trailing_zero_bits : A = " << string(A);
+        A.truncate_trailing_zero_bits();
         cout << " -> " << string(A) << "\n";
         u32 ValuesExpected[] { 0x5555'5555, 0x5555 };
-        Expected.Set(ValuesExpected, ArrayCount(ValuesExpected), 0, 47 );
-        Tests.Append(A.EqualsFractional(Expected));
+        Expected.set(ValuesExpected, ArrayCount(ValuesExpected), 0, 47 );
+        Tests.Append(A.equals_fractional(Expected));
 
         //---------------------------------------------v fractional point here
         u32 ValuesA_1[] { 0x0, 0b1111'1111'1111'1111'0101'1000'0000'0000 };
-        A.Set( ValuesA_1, ArrayCount(ValuesA_1), 0, 15 );
-        cout << "Test #" << Tests.TestCount << " : Test TruncateTrailingZeroBits : A = " << string(A);
-        A.TruncateTrailingZeroBits();
+        A.set( ValuesA_1, ArrayCount(ValuesA_1), 0, 15 );
+        cout << "Test #" << Tests.TestCount << " : Test truncate_trailing_zero_bits : A = " << string(A);
+        A.truncate_trailing_zero_bits();
         cout << " -> " << string(A) << "\n";
         //----------------------------------------------------------v fractional point here
         u32 ValuesExpected_1[] { 0b00000000'000'11111111'11111111'01011 };
-        Expected.Set( ValuesExpected_1, ArrayCount(ValuesExpected_1), 0, 15 );
-        Tests.Append(A.EqualsFractional(Expected));
+        Expected.set( ValuesExpected_1, ArrayCount(ValuesExpected_1), 0, 15 );
+        Tests.Append(A.equals_fractional(Expected));
 
         //--------------------------------------------------v fractional point here
         u32 ValuesA_2[] { 0x0, 0b1111'1111'1111'1111'0101'1000'0000'0000 };
-        A.Set( ValuesA_2, ArrayCount(ValuesA_2), 0, 19 );
-        cout << "Test #" << Tests.TestCount << " : Test TruncateTrailingZeroBits : A = " << string(A);
-        A.TruncateTrailingZeroBits();
+        A.set( ValuesA_2, ArrayCount(ValuesA_2), 0, 19 );
+        cout << "Test #" << Tests.TestCount << " : Test truncate_trailing_zero_bits : A = " << string(A);
+        A.truncate_trailing_zero_bits();
         cout << " -> " << string(A) << "\n";
         //---------------------------------------------------------------v fractional point here
         u32 ValuesExpected_2[] { 0b00000000'000'11111111'11111111'0101'1 };
-        Expected.Set( ValuesExpected_2, ArrayCount(ValuesExpected_2), 0, 19 );
-        Tests.Append(A.EqualsFractional(Expected));
+        Expected.set( ValuesExpected_2, ArrayCount(ValuesExpected_2), 0, 19 );
+        Tests.Append(A.equals_fractional(Expected));
 
         //-----------------------------------------------------v fractional point here
         u32 ValuesA_3[] { 0x0, 0b1111'1111'1111'1111'0101'10'00'0000'0000 };
-        A.Set( ValuesA_3, ArrayCount(ValuesA_3), 0, 21 );
-        cout << "Test #" << Tests.TestCount << " : Test TruncateTrailingZeroBits : A = " << string(A);
-        A.TruncateTrailingZeroBits();
+        A.set( ValuesA_3, ArrayCount(ValuesA_3), 0, 21 );
+        cout << "Test #" << Tests.TestCount << " : Test truncate_trailing_zero_bits : A = " << string(A);
+        A.truncate_trailing_zero_bits();
         cout << " -> " << string(A) << "\n";
         //-------------------------------------------------------------------v fractional point here
         u32 ValuesExpected_3[] { 0b0'0000'0000'0011'1111'1111'1111'1101'011 };
-        Expected.Set( ValuesExpected_3, ArrayCount(ValuesExpected_3), 0, 21 );
-        Tests.Append(A.EqualsFractional(Expected));
+        Expected.set( ValuesExpected_3, ArrayCount(ValuesExpected_3), 0, 21 );
+        Tests.Append(A.equals_fractional(Expected));
     }
 
 #endif
 
     {
-        //use Big_Decimal to represent arbitrary precision fractional numbers
-        A.Set(3);
-        B.Set(2);
+        //use BigDecimal to represent arbitrary precision fractional numbers
+        A.set(3);
+        B.set(2);
         u32 ValuesExpected[] = { 0b1'1 };
-        Expected.Set(ValuesExpected, ArrayCount(ValuesExpected), 0, 0);
+        Expected.set(ValuesExpected, ArrayCount(ValuesExpected), 0, 0);
 
-        A.DivInteger(B); // A= 3/2
+        A.div_integer(B); // A= 3/2
         cout << "Test #" << Tests.TestCount << " : " << string(A) << "\n";
         CheckA();
 
 
         ValuesExpected[0] = { 0b11 };
-        Expected.Set(ValuesExpected, ArrayCount(ValuesExpected), 0, 1);
+        Expected.set(ValuesExpected, ArrayCount(ValuesExpected), 0, 1);
 
-        A.CopyTo(&B); // B= 3/2
-        A.AddFractional(A); // A= 6/2 = 3
+        A.copy_to(&B); // B= 3/2
+        A.add_fractional(A); // A= 6/2 = 3
         cout << "Test #" << Tests.TestCount << " : " << string(A) << "\n"; //#88
-        Tests.Append(A.EqualsFractional(Expected));
+        Tests.Append(A.equals_fractional(Expected));
 
 
 
         ValuesExpected[0] = { 0b100'1 };
-        Expected.Set(ValuesExpected, ArrayCount(ValuesExpected), 0, 2);
+        Expected.set(ValuesExpected, ArrayCount(ValuesExpected), 0, 2);
 
-        A.AddFractional(B); // A= 3+3/2 = 4.5
+        A.add_fractional(B); // A= 3+3/2 = 4.5
         cout << "Test #" << Tests.TestCount << " : " << string(A) << "\n";
-        Tests.Append(A.EqualsFractional(Expected));
+        Tests.Append(A.equals_fractional(Expected));
 
-        A.Set(81,1); //-81
-        B.Set(6);
+        A.set(81,1); //-81
+        B.set(6);
         ValuesExpected[0] = 0b1101'1;
-        Expected.Set(ValuesExpected, ArrayCount(ValuesExpected), 1, 3);
+        Expected.set(ValuesExpected, ArrayCount(ValuesExpected), 1, 3);
 
-        A.DivInteger(B); // C= -81/6 = -13.5
+        A.div_integer(B); // C= -81/6 = -13.5
         cout << "Test #" << Tests.TestCount << " got/exp :\n" << string(A) << "\n" << string(Expected) << "\n";;
         CheckA();
 
-        A.Set(3);
+        A.set(3);
         A.Exponent = Log2I(3);
-        A.Normalize();
-        B.Set(2);
+        A.normalize();
+        B.set(2);
         B.Exponent = Log2I(2);
-        B.Normalize();
-        A.DivFractional(B); // A= 3/2
-        B.DivFractional(A,33); // B= 4/3
+        B.normalize();
+        A.div_fractional(B); // A= 3/2
+        B.div_fractional(A,33); // B= 4/3
         u32 ValuesExpected_1[] = { 0b01010101'01010101'01010101'01010101, 0b101 };
-        Expected.Set(ValuesExpected_1, ArrayCount(ValuesExpected_1), 0, 0);
+        Expected.set(ValuesExpected_1, ArrayCount(ValuesExpected_1), 0, 0);
         cout << "Test #" << Tests.TestCount << " : \nB= \t  " << string(B);
         cout << "\nExpected= " << string(Expected) << "\n" ;
-        Tests.Append(B.EqualsFractional(Expected) && B.CountBits() == 35);
+        Tests.Append(B.equals_fractional(Expected) && B.count_bits() == 35);
 
-        A.AddFractional(B); // A= 17/6
+        A.add_fractional(B); // A= 17/6
         ValuesExpected_1[1] = 0b1011;
         ValuesExpected_1[0] = 0b01010101'01010101'01010101'01010101;
-        Expected.Set(ValuesExpected_1, ArrayCount(ValuesExpected_1), 0, 1);
+        Expected.set(ValuesExpected_1, ArrayCount(ValuesExpected_1), 0, 1);
         cout << "Test #" << Tests.TestCount << " : \nA= \t  ";
         cout << string(A);
         cout << "\nExpected= " << string(Expected) << "\n" ;
-        Tests.Append(A.EqualsFractional(Expected) && A.CountBits() == 36);
+        Tests.Append(A.equals_fractional(Expected) && A.count_bits() == 36);
 
-        B.SubFractional(A); // B= -9/6
+        B.sub_fractional(A); // B= -9/6
         ValuesExpected[0] = 0b1'1;
-        Expected.Set(ValuesExpected, ArrayCount(ValuesExpected), 1, 0);
+        Expected.set(ValuesExpected, ArrayCount(ValuesExpected), 1, 0);
         cout << "Test #" << Tests.TestCount << " : \nB= \t  ";
         cout << string(B);
         cout << "\nExpected= " << string(Expected) << "\n" ;
-        Tests.Append(B.EqualsFractional(Expected));
+        Tests.Append(B.equals_fractional(Expected));
 
-        cout << "Test #" << Tests.TestCount << " : \nA.RoundToNSignificantBits(33);\n";
-        A.RoundToNSignificantBits(33);
+        cout << "Test #" << Tests.TestCount << " : \nA.round_to_n_significant_bits(33);\n";
+        A.round_to_n_significant_bits(33);
         cout << "=" << string(A) << "\n";
         ValuesExpected_1[1] = 0b1;
         ValuesExpected_1[0] = 0b0'1101'0101'0101'0101'0101'0101'0101'011;
-        Expected.Set(ValuesExpected_1, ArrayCount(ValuesExpected_1), 0, 1);
+        Expected.set(ValuesExpected_1, ArrayCount(ValuesExpected_1), 0, 1);
         cout << "(" << string(Expected) << ")\n";
-        Tests.Append(A.EqualsFractional(Expected));
+        Tests.Append(A.equals_fractional(Expected));
 
         cout << "Test #" << Tests.TestCount << " : \nA= \t  ";
         cout << string(A) << "\n*\t  " << string(B) << "\n=\t  ";
         //17/6 * -9/6 = 2.833333333333 * -1.5
-        A.MulFractional(B); // A= -51/12 == -4.25
+        A.mul_fractional(B); // A= -51/12 == -4.25
         ValuesExpected_1[1] = 0b100;
         ValuesExpected_1[0] = 0b0100'0000'0000'0000'0000'0000'0000'0001; //NOTE(##2024 06 12)not sure if this is what float would produce?
-        Expected.Set(ValuesExpected_1, ArrayCount(ValuesExpected_1), 1, 2);
+        Expected.set(ValuesExpected_1, ArrayCount(ValuesExpected_1), 1, 2);
         cout << string(A);
         cout << "\nExpected= " << string(Expected) << "\n" ;
-        Tests.Append(A.EqualsFractional(Expected));
+        Tests.Append(A.equals_fractional(Expected));
 
         {
             unsigned long X = 0x0000'B0AA'AAAA'0640;
@@ -977,62 +977,62 @@ i32 Test_big_decimal(bool only_errors = false) {
 
         //---------
 
-        A.Set(3,0,1);
-        A.Normalize();
-        B.Set(2,0,1);
-        B.Normalize();
-        A.DivFractional(B,200); // A= 3/2
-        B.DivFractional(A,200); // B= 4/3
+        A.set(3,0,1);
+        A.normalize();
+        B.set(2,0,1);
+        B.normalize();
+        A.div_fractional(B,200); // A= 3/2
+        B.div_fractional(A,200); // B= 4/3
 
-        A.AddFractional(B); // A= 17/6
+        A.add_fractional(B); // A= 17/6
 
         cout << "Test #" << Tests.TestCount << "\n";
         cout << "A= " << string(A) << "\n";
 
-        B.SubFractional(A); // B= -9/6
+        B.sub_fractional(A); // B= -9/6
 
         cout << "B= " << string(B) << "\n";
 
-        A.RoundToNSignificantBits(192);
-        cout << "A.RoundToNSignificantBits(192);\n";
+        A.round_to_n_significant_bits(192);
+        cout << "A.round_to_n_significant_bits(192);\n";
         cout << "A= " << string(A) << "\n";
 
-        A.MulFractional(B); // A= -51/12 == -4.25
+        A.mul_fractional(B); // A= -51/12 == -4.25
         ValuesExpected[0] = 0b100'01;
-        Expected.Set(ValuesExpected, ArrayCount(ValuesExpected), 1, 2);
+        Expected.set(ValuesExpected, ArrayCount(ValuesExpected), 1, 2);
 //        ValuesExpected_1[1]= 4;
 //        ValuesExpected_1[0]= 0b0011'0101'0101'0101'0101'0101'0101'0101;
-//        Expected.Set(ValuesExpected_1, ArrayCount(ValuesExpected_1), 1, 32);
+//        Expected.set(ValuesExpected_1, ArrayCount(ValuesExpected_1), 1, 32);
 
         cout << "A*B= " << string(A) << "\n";
 
-        A.RoundToNSignificantBits(53);
-        cout << "A.RoundToNSignificantBits(53);\n";
+        A.round_to_n_significant_bits(53);
+        cout << "A.round_to_n_significant_bits(53);\n";
         cout << "A= " << string(A) << "\n";
         cout << "\nExpected= " << string(Expected) << "\n" ;
-        Tests.Append(A.EqualsFractional(Expected)); //#96
+        Tests.Append(A.equals_fractional(Expected)); //#96
 
         //---------
 
-        A.Set(1);
-        B.Set(3);
+        A.set(1);
+        B.set(3);
         i32 Precision = 4;
         cout << string(A) << " / " << string(B) << "(Prec=" << Precision << ")\n= ";
-        A.DivFractional(B,Precision);
+        A.div_fractional(B,Precision);
         cout << string(A) << "\n";
-        A.Set(1);
+        A.set(1);
         Precision = 5;
         cout << string(A) << " / " << string(B) << "(Prec=" << Precision << ")\n= ";
-        A.DivFractional(B,Precision);
+        A.div_fractional(B,Precision);
         cout << string(A) << "\n";
         cout << "\n";
 
-        A.Set(1);
-        A.DivInteger(B,32); //B=3
-        A.RoundToNSignificantBits(30);
+        A.set(1);
+        A.div_integer(B,32); //B=3
+        A.round_to_n_significant_bits(30);
         ValuesExpected[0] = 0b0'0101'0101'0101'0101'0101'0101'0101'011;
-        Expected.Set(ValuesExpected, ArrayCount(ValuesExpected), 0, -2);
-        Tests.Append(A.EqualsFractional(Expected)); //#97
+        Expected.set(ValuesExpected, ArrayCount(ValuesExpected), 0, -2);
+        Tests.Append(A.equals_fractional(Expected)); //#97
         cout << string(A) << "\n";
         cout << string(Expected) << "\n";
 //
@@ -1043,50 +1043,50 @@ i32 Test_big_decimal(bool only_errors = false) {
     {
 
         /*
-        test Normalize()
+        test normalize()
         A = 00 88 11 00 00 -> A = 88 11
         */
-        char TestName[]="Normalize()";
-        A.Set(0);
-        A.Set(0x8811,false,7);
-        A.ShiftLeft(64);
-        A.ExtendLength();
+        char TestName[]="normalize()";
+        A.set(0);
+        A.set(0x8811,false,7);
+        A.shift_left(64);
+        A.extend_length();
         A.Exponent = 7;
-        A.CopyTo(&OldA);
-        A.Normalize();
-        Expected.Set(0x8811);
+        A.copy_to(&OldA);
+        A.normalize();
+        Expected.set(0x8811);
         Expected.Exponent = 7;
         PrintTestA(TestName);
-        Tests.Append(A.EqualsFractional(Expected));
+        Tests.Append(A.equals_fractional(Expected));
 
     }
 
     {
         cout << "Test#" << Tests.TestCount << "\n";
-        A.Set(0x10'000'000);
-        A.Normalize();
-        Expected.Set(1);
+        A.set(0x10'000'000);
+        A.normalize();
+        Expected.set(1);
         Expected.Exponent = 0; //Normalize doesn't change exponent
 
-        Tests.Append(A.EqualsFractional(Expected));
+        Tests.Append(A.equals_fractional(Expected));
 
     }
 
 
     {
-        //2024 07 04: Test ToFloat
+        //2024 07 04: Test to_float
         cout << "\tTest #" << Tests.TestCount << "\n";
-        char TestName[] = "Test ToFloat";
+        char TestName[] = "Test to_float";
         float Challenge = -0x1.FFFFFEp127;
-        A.SetFloat(Challenge);
-        Expected.Set(0xFFFFFF,true,127);
-        Tests.Append(A.EqualsFractional(Expected));
+        A.set_float(Challenge);
+        Expected.set(0xFFFFFF,true,127);
+        Tests.Append(A.equals_fractional(Expected));
         cout << TestName << "\n";
         cout << std::hexfloat << Challenge << " -> " << "\n";
         cout << string(A) << "\n";
         cout << "(" << string(Expected) << ")\n";
 
-        float Parsed = A.ToFloat();
+        float Parsed = A.to_float();
         Tests.Append(Parsed==Challenge);
         cout << Parsed << " <- " << "\n";
     }
@@ -1097,10 +1097,10 @@ i32 Test_big_decimal(bool only_errors = false) {
         cout << "\tTest #" << Tests.TestCount << "\n";
         cout << "Denormalized" << "\n";
         float Challenge = 0x1p-149f;
-        A.SetFloat(Challenge);
-        Expected.Set(0x1,false, -149);
-        Tests.Append(A.EqualsFractional(Expected));
-        float Parsed = A.ToFloat();
+        A.set_float(Challenge);
+        Expected.set(0x1,false, -149);
+        Tests.Append(A.equals_fractional(Expected));
+        float Parsed = A.to_float();
         Tests.Append(Parsed == Challenge);
         cout << std::hexfloat << Challenge << " -> " << "\n";
         cout << string(A) << "\n";
@@ -1112,10 +1112,10 @@ i32 Test_big_decimal(bool only_errors = false) {
         cout << "\tTest #" << Tests.TestCount << "\n";
         cout << "Denormalized" << "\n";
         float Challenge = 0x1.fffffcp-127f;
-        A.SetFloat(Challenge);
-        Expected.Set(0x7fffff,false, -127);
-        Tests.Append(A.EqualsFractional(Expected));
-        float Parsed = A.ToFloat();
+        A.set_float(Challenge);
+        Expected.set(0x7fffff,false, -127);
+        Tests.Append(A.equals_fractional(Expected));
+        float Parsed = A.to_float();
         Tests.Append(Parsed == Challenge);
         cout << std::hexfloat << Challenge << " -> " << "\n";
         cout << string(A) << "\n";
@@ -1129,10 +1129,10 @@ i32 Test_big_decimal(bool only_errors = false) {
         cout << "Infinity" << "\n";
         float Challenge = 0x1p+128f;
         HardAssert (IsInf(Challenge));
-        A.SetFloat(Challenge);
-        Expected.Set(0x1,false, 128);
-        Tests.Append(A.EqualsFractional(Expected));
-        float Parsed = A.ToFloat();
+        A.set_float(Challenge);
+        Expected.set(0x1,false, 128);
+        Tests.Append(A.equals_fractional(Expected));
+        float Parsed = A.to_float();
         Tests.Append(Parsed == Challenge);
         cout << std::hexfloat << Challenge << " -> " << "\n";
         cout << string(A) << "\n";
@@ -1143,8 +1143,8 @@ i32 Test_big_decimal(bool only_errors = false) {
     {
         cout << "\tTest #" << Tests.TestCount << "\n";
         cout << "Zero" << "\n";
-        A.Set(0x1,false,-150);
-        float Parsed = A.ToFloat();
+        A.set(0x1,false,-150);
+        float Parsed = A.to_float();
         Tests.Append(Parsed == 0.f);
         cout << string(A) << " -> " << std::hexfloat << Parsed << "\n";
     }
@@ -1154,17 +1154,17 @@ i32 Test_big_decimal(bool only_errors = false) {
     {
         cout << "\tTest #" << Tests.TestCount << "\n";
         cout << "for infinity\n";
-        A.Set(0xFF'FFFF8,true,127);
-        A.Normalize();
-        A.CopyTo(&B);
+        A.set(0xFF'FFFF8,true,127);
+        A.normalize();
+        A.copy_to(&B);
 //        B.RoundToFloatPrecision();
         float Challenge = -Inf32;
 
-        float Parsed = B.ToFloat();
+        float Parsed = B.to_float();
         Tests.Append(Parsed == Challenge);
 
         cout << string(A) << " -> Round(24)\n";
-        cout << string(B) << " -> ToFloat()\n";
+        cout << string(B) << " -> to_float()\n";
         cout << " " << std::hexfloat << Parsed << "\n";
         cout << "(" << Parsed << ")\n";
     }
@@ -1172,17 +1172,17 @@ i32 Test_big_decimal(bool only_errors = false) {
     {
         cout << "\tTest #" << Tests.TestCount << "\n";
         cout << "for infinity\n";
-        A.Set(0xFF'FFFE8,true,127);
-        A.Normalize();
-        A.CopyTo(&B);
+        A.set(0xFF'FFFE8,true,127);
+        A.normalize();
+        A.copy_to(&B);
 //        B.RoundToFloatPrecision();
         float Challenge = -0x1.fffffcp+127;
 
-        float Parsed = B.ToFloat();
+        float Parsed = B.to_float();
         Tests.Append(Parsed == Challenge);
 
         cout << string(A) << " -> Round(24)\n";
-        cout << string(B) << " -> ToFloat()\n";
+        cout << string(B) << " -> to_float()\n";
         cout << " " << std::hexfloat << Parsed << "\n";
         cout << "(" << Challenge << ")\n";
     }
@@ -1191,11 +1191,11 @@ i32 Test_big_decimal(bool only_errors = false) {
     {
         cout << "\tTest #" << Tests.TestCount << "\n";
         cout << "for subnormal\n";
-        A.Set(0b11,true,-149);
-        real32 Parsed = A.ToFloat();
+        A.set(0b11,true,-149);
+        real32 Parsed = A.to_float();
         real32 Challenge = -0x1p-148f;
         Tests.Append(Parsed == Challenge);
-        cout << string(A) << "-> ToFloat()\n";
+        cout << string(A) << "-> to_float()\n";
         cout << std::hexfloat << Parsed << "\n";
         cout << "(" << Challenge << ")\n";
     }
@@ -1203,11 +1203,11 @@ i32 Test_big_decimal(bool only_errors = false) {
     {
         cout << "\tTest #" << Tests.TestCount << "\n";
         cout << "for regular" << "\n";
-        A.Set(0x1FFFFFF,true,0);
-        real32 Parsed = A.ToFloat();
+        A.set(0x1FFFFFF,true,0);
+        real32 Parsed = A.to_float();
         real32 Challenge = -0x1p+1f;
         Tests.Append(Parsed == Challenge);
-        cout << string(A) << "-> ToFloat()\n";
+        cout << string(A) << "-> to_float()\n";
         cout << std::hexfloat << Parsed << "\n";
         cout << "(" << Challenge << ")\n";
     }
@@ -1215,11 +1215,11 @@ i32 Test_big_decimal(bool only_errors = false) {
     {
         cout << "\tTest #" << Tests.TestCount << "\n";
         cout << "for almost zero:\n";
-        A.Set(0b11,true,-150);
-        real32 Parsed = A.ToFloat();
+        A.set(0b11,true,-150);
+        real32 Parsed = A.to_float();
         real32 Challenge = -0x1p-149;
         Tests.Append(Parsed == Challenge);
-        cout << string(A) << "-> ToFloat()\n";
+        cout << string(A) << "-> to_float()\n";
         cout << std::hexfloat << Parsed << "\n";
         cout << "(" << Challenge << ")\n";
     }
@@ -1231,12 +1231,12 @@ i32 Test_big_decimal(bool only_errors = false) {
     {
         auto Test = [&A,&Tests,only_errors](u64 Val, bool Neg, i32 Exp, f32 Expected){
             bool OK = true;
-            A.Set(Val,Neg,Exp);
-            f32 Result = A.ToFloat();
+            A.set(Val,Neg,Exp);
+            f32 Result = A.to_float();
             OK &= Result == Expected;
             if (!OK || !only_errors) {
                 cout << "Tests #" << Tests.TestCount << "\n";
-                cout << string(A) << " -> ToFloat() ->\n"
+                cout << string(A) << " -> to_float() ->\n"
                 << " " << Result << "\n"
                 << "(" << Expected << ")\n";
                 cout << (OK ? "OK" : "ERROR") << "\n";
@@ -1244,14 +1244,14 @@ i32 Test_big_decimal(bool only_errors = false) {
             Tests.Append(OK);
         };
 
-        typedef Big_Dec_Arena bignum ;
+        typedef BigDec_Arena bignum ;
         auto Test2 = [&Tests, only_errors](bignum& A, f32 Expected){
            bool OK = true;
-            f32 Result = A.ToFloat();
+            f32 Result = A.to_float();
             OK &= Result == Expected;
             if (!OK || !only_errors) {
                 cout << "Tests #" << Tests.TestCount << "\n";
-                cout << string(A) << " -> ToFloat() ->\n"
+                cout << string(A) << " -> to_float() ->\n"
                 << " " << Result << "\n"
                 << "(" << Expected << ")\n";
                 cout << (OK ? "OK" : "ERROR") << "\n";
@@ -1325,175 +1325,175 @@ i32 Test_big_decimal(bool only_errors = false) {
         cout << "\nTest #" << Tests.TestCount << " - ";
         cout << "\lsb == 0, GRS==000\n";
         IEEE754(0x1.0000000p0);
-        A.Set(0x10000000);
-        A.Normalize();
+        A.set(0x10000000);
+        A.normalize();
         Test2(A,Small);
 
 
         cout << "\nTest #" << Tests.TestCount << " - ";
         cout << "\lsb == 1, GRS==000\n";
         IEEE754(0x1.0000020p0);
-        A.Set(0x10000020);
-        A.Normalize();
+        A.set(0x10000020);
+        A.normalize();
         Test2(A,Small);
 
         cout << "\nTest #" << Tests.TestCount << " - ";
         cout << "\lsb == 0, GRS==001\n";
         IEEE754(0x1.0000001p0);
-        A.Set(0x10000001);
-        A.Normalize();
+        A.set(0x10000001);
+        A.normalize();
         Test2(A,Small);
 
 
         cout << "\nTest #" << Tests.TestCount << " - ";
         cout << "\lsb == 1, GRS==001\n";
         IEEE754(0x1.0000021p0);
-        A.Set(0x10000021);
-        A.Normalize();
+        A.set(0x10000021);
+        A.normalize();
         Test2(A,Small);
 
 
         cout << "\nTest #" << Tests.TestCount << " - ";
         cout << "\lsb == 0, GRS==010\n";
         IEEE754(0x1.0000008p0);
-        A.Set(0x10000008);
-        A.Normalize();
+        A.set(0x10000008);
+        A.normalize();
         Test2(A,Small);
 
 
         cout << "\nTest #" << Tests.TestCount << " - ";
         cout << "\lsb == 1, GRS==010\n";
         IEEE754(0x1.0000028p0);
-        A.Set(0x10000028);
-        A.Normalize();
+        A.set(0x10000028);
+        A.normalize();
         Test2(A,Small);
 
 
         cout << "\nTest #" << Tests.TestCount << " - ";
         cout << "\lsb == 0, GRS==011\n";
         IEEE754(0x1.0000009p0);
-        A.Set(0x10000009);
-        A.Normalize();
+        A.set(0x10000009);
+        A.normalize();
         Test2(A,Small);
 
 
         cout << "\nTest #" << Tests.TestCount << " - ";
         cout << "\lsb == 1, GRS==011\n";
         IEEE754(0x1.0000029p0);
-        A.Set(0x10000029);
-        A.Normalize();
+        A.set(0x10000029);
+        A.normalize();
         Test2(A,Small);
 
 
         cout << "\nTest #" << Tests.TestCount << " - ";
         cout << "\lsb == 0, GRS==100\n";
         IEEE754(0x1.000001p0);
-        A.Set(0x1000001);
-        A.Normalize();
+        A.set(0x1000001);
+        A.normalize();
         Test2(A,Small);
 
 
         cout << "\nTest #" << Tests.TestCount << " - ";
         cout << "\lsb == 1, GRS==100\n";
         IEEE754(0x1.000003p0);
-        A.Set(0x1000003);
-        A.Normalize();
+        A.set(0x1000003);
+        A.normalize();
         Test2(A,Small);
 
 
         cout << "\nTest #" << Tests.TestCount << " - ";
         cout << "\lsb == 0, GRS==101\n";
         IEEE754(0x1.0000011p0);
-        A.Set(0x10000011);
-        A.Normalize();
+        A.set(0x10000011);
+        A.normalize();
         Test2(A,Small);
 
 
         cout << "\nTest #" << Tests.TestCount << " - ";
         cout << "\lsb == 1, GRS==101\n";
         IEEE754(0x1.0000031p0);
-        A.Set(0x10000031);
-        A.Normalize();
+        A.set(0x10000031);
+        A.normalize();
         Test2(A,Small);
 
 
         cout << "\nTest #" << Tests.TestCount << " - ";
         cout << "\lsb == 0, GRS==110\n";
         IEEE754(0x1.0000018p0);
-        A.Set(0x10000018);
-        A.Normalize();
+        A.set(0x10000018);
+        A.normalize();
         Test2(A,Small);
 
 
         cout << "\nTest #" << Tests.TestCount << " - ";
         cout << "\lsb == 1, GRS==110\n";
         IEEE754(0x1.0000038p0);
-        A.Set(0x10000038);
-        A.Normalize();
+        A.set(0x10000038);
+        A.normalize();
         Test2(A,Small);
 
 
         cout << "\nTest #" << Tests.TestCount << " - ";
         cout << "\lsb == 0, GRS==111\n";
         IEEE754(0x1.0000019p0);
-        A.Set(0x10000019);
-        A.Normalize();
+        A.set(0x10000019);
+        A.normalize();
         Test2(A,Small);
 
 
         cout << "\nTest #" << Tests.TestCount << " - ";
         cout << "\lsb == 1, GRS==111\n";
         IEEE754(0x1.0000039p0);
-        A.Set(0x10000039);
-        A.Normalize();
+        A.set(0x10000039);
+        A.normalize();
         Test2(A,Small);
 
     }
 
     {
-        A.SetFloat(3.f);
-        B.SetFloat(2.f);
-        A.DivFractional(B,32); // A= 3/2
-        B.DivFractional(A,31); // B= 4/3
+        A.set_float(3.f);
+        B.set_float(2.f);
+        A.div_fractional(B,32); // A= 3/2
+        B.div_fractional(A,31); // B= 4/3
         u32 ValuesExpected_1[] = { 0b01010101'01010101'01010101'01010101, 0b1 };
-        Expected.Set(ValuesExpected_1, ArrayCount(ValuesExpected_1), 0, 0);
+        Expected.set(ValuesExpected_1, ArrayCount(ValuesExpected_1), 0, 0);
         cout << "\nTest #" << Tests.TestCount;
         cout << "\nB=4/3 == 0b1.0101...01";
         cout << "\nB= \t  " << string(B);
         cout << "\nExpected= " << string(Expected) << "\n" ;
-        Tests.Append(B.EqualsFractional(Expected) && B.CountBits() == 33);
+        Tests.Append(B.equals_fractional(Expected) && B.count_bits() == 33);
 
-        A.AddFractional(B); // A= 17/6
+        A.add_fractional(B); // A= 17/6
         ValuesExpected_1[1] = 0b10;
         ValuesExpected_1[0] = 0b11010101'01010101'01010101'01010101;
-        Expected.Set(ValuesExpected_1, ArrayCount(ValuesExpected_1), 0, 1);
+        Expected.set(ValuesExpected_1, ArrayCount(ValuesExpected_1), 0, 1);
         cout << "\nTest #" << Tests.TestCount;
         cout << "\nA == 3/2; A += B;";
         cout << "\n3/2 + 4/3 = 17/6 == 0b10.1101...01";
         cout << "\nA = " << string(A);
         cout << "\nExpected= " << string(Expected) << "\n" ;
-        Tests.Append(A.EqualsFractional(Expected) && A.CountBits() == 34);
+        Tests.Append(A.equals_fractional(Expected) && A.count_bits() == 34);
 
-        B.SubFractional(A); // B= -9/6
+        B.sub_fractional(A); // B= -9/6
         u32 ValuesExpected[] = {0b1'1};
-        Expected.Set(ValuesExpected, ArrayCount(ValuesExpected), 1, 0);
+        Expected.set(ValuesExpected, ArrayCount(ValuesExpected), 1, 0);
         cout << "\nTest #" << Tests.TestCount;
         cout << "\n4/3 - 17/6 = -9/6 == -0b1.1";
         cout << "\nB = " << string(B);
         cout << "\nExpected = " << string(Expected) << "\n" ;
-        Tests.Append(B.EqualsFractional(Expected));
+        Tests.Append(B.equals_fractional(Expected));
 
         cout << "\nTest #" << Tests.TestCount << "\n";
-        cout << "\nA.RoundToNSignificantBits(33) with A.BitCount == 34";
+        cout << "\nA.round_to_n_significant_bits(33) with A.BitCount == 34";
         cout << "\n=> A bits end with 010101";
         cout << "\n=>              LSB----^^---GuardBit";
         cout << "\n=> LSB == 0, Guard bit == 1, Round bit == Sticky bit == 0\n";
         cout << "\n=> round down (round-to-even)\n";
-        A.RoundToNSignificantBits(33);
+        A.round_to_n_significant_bits(33);
         cout << "=" << string(A) << "\n";
-        Expected.Set(0b10'1101'0101'0101'0101'0101'0101'0101'01, 0, 1);
+        Expected.set(0b10'1101'0101'0101'0101'0101'0101'0101'01, 0, 1);
         cout << "(" << string(Expected) << ")\n";
-        Tests.Append(A.EqualsFractional(Expected));
+        Tests.Append(A.equals_fractional(Expected));
 
         double DA,DB;
         DA = 3.; DB = 2.;
@@ -1501,11 +1501,11 @@ i32 Test_big_decimal(bool only_errors = false) {
         real32 FA=DA;
         cout << "\nTest #" << Tests.TestCount << "\n";
         cout << "double/float result: " << FA << "\n";
-        cout << "Big_Decimal result:      " << A.ToFloat() << "\n";
-        Tests.Append(FA == A.ToFloat());
+        cout << "BigDecimal result:      " << A.to_float() << "\n";
+        Tests.Append(FA == A.to_float());
     }
 
-    Big_Dec_Arena::CloseContext(true);
+    BigDec_Arena::close_context(true);
 
     //TODO(##2023 11 24): improve unit_test interface:
     //Tests.Assert(Condition)
@@ -1522,8 +1522,8 @@ Test_Parsing(bool only_errors = false) {
 
     using std::cout;
     using std::string;
-    using Arena_Alloc_Of_Big_Dec_Val = ArenaAlloc<Big_Dec_Chunk>;
-    using Big_Dec_Arena = Big_Decimal<Arena_Alloc_Of_Big_Dec_Val>;
+    using ArenaChunkAlloc = ArenaAlloc<ChunkBits>;
+    using BigDec_Arena = BigDecimal<ArenaChunkAlloc>;
 
     i32 FailCount { 0 };
 
@@ -1534,19 +1534,19 @@ Test_Parsing(bool only_errors = false) {
     memory_index ArenaSize = 256*32768*sizeof(u32);
     uint8 *ArenaBase = (uint8*)VirtualAlloc(0, ArenaSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
 
-    Arena_Alloc_Of_Big_Dec_Val  virtual_alloc_arena_alloc_2 { ArenaSize, ArenaBase, virtual_free_decommit};
-    Big_Dec_Arena::InitializeContext ( virtual_alloc_arena_alloc_2);
+    ArenaChunkAlloc  virtual_alloc_arena_alloc_2 { ArenaSize, ArenaBase, virtual_free_decommit};
+    BigDec_Arena::initialize_context ( virtual_alloc_arena_alloc_2);
 
-    Big_Dec_Arena A { virtual_alloc_arena_alloc_2, 9};
-    Big_Dec_Arena OldA { virtual_alloc_arena_alloc_2, A};
-    Big_Dec_Arena B { virtual_alloc_arena_alloc_2, 10};
+    BigDec_Arena A { virtual_alloc_arena_alloc_2, 9};
+    BigDec_Arena OldA { virtual_alloc_arena_alloc_2, A};
+    BigDec_Arena B { virtual_alloc_arena_alloc_2, 10};
 
-    Big_Dec_Arena Expected ( virtual_alloc_arena_alloc_2, 0);
+    BigDec_Arena Expected ( virtual_alloc_arena_alloc_2, 0);
 
     auto CheckA = [&](){
-        Tests.Append(A.EqualsInteger(Expected)); };
+        Tests.Append(A.equals_integer(Expected)); };
 
-    auto PrintTestOutput = [&Tests](Big_Dec_Arena& Before, Big_Dec_Arena& After, Big_Dec_Arena& Wanted,
+    auto PrintTestOutput = [&Tests](BigDec_Arena& Before, BigDec_Arena& After, BigDec_Arena& Wanted,
                                     char *BeforeName, char *AfterName, char*WantedName, char *TestName){
         cout << "Test #" << Tests.TestCount;
         if (TestName)   cout << " : " << TestName;
@@ -1565,7 +1565,7 @@ Test_Parsing(bool only_errors = false) {
 
     {
 
-        std::cout << "\nTesting Big_Decimal::ParseInteger() ... \n";
+        std::cout << "\nTesting BigDecimal::parse_integer() ... \n";
         std::cout << "\nShould succeed ... \n";
 
         real32 Buf[1];
@@ -1583,9 +1583,9 @@ Test_Parsing(bool only_errors = false) {
         };
 
         for (size_t i = 0 ; i < ArrayCount(Input) ; ++i) {
-            bool Passed = Big_Dec_Arena::ParseInteger(Input[i]);
-            Big_Dec_Arena::temp_parse_int.Normalize();
-            Buf[0] = Big_Dec_Arena::temp_parse_int.ToFloat();
+            bool Passed = BigDec_Arena::parse_integer(Input[i]);
+            BigDec_Arena::temp_parse_int.normalize();
+            Buf[0] = BigDec_Arena::temp_parse_int.to_float();
             Passed &= Buf[0] == Expected[i];
 
             const char *CheckMsg = Passed ? "OK"  : "ERROR";
@@ -1599,7 +1599,7 @@ Test_Parsing(bool only_errors = false) {
     }
 
     {
-        std::cout << "\nTesting Big_Decimal::FromString() ... \n";
+        std::cout << "\nTesting BigDecimal::from_string() ... \n";
         std::cout << "\nShould succeed ... \n";
 
         real32 Buf[1];
@@ -1613,8 +1613,8 @@ Test_Parsing(bool only_errors = false) {
             };
 
         for (size_t i = 0 ; i < ArrayCount(Input) ; ++i) {
-            bool Passed = Big_Dec_Arena::FromString(Input[i]);
-            Buf[0] = Big_Dec_Arena::temp_from_string.ToFloat();
+            bool Passed = BigDec_Arena::from_string(Input[i]);
+            Buf[0] = BigDec_Arena::temp_from_string.to_float();
             Passed &= Buf[0] == Expected[i];
             const char *CheckMsg = Passed ? "OK"  : "ERROR";
 
@@ -1628,7 +1628,7 @@ Test_Parsing(bool only_errors = false) {
     }
 
     {
-        std::cout << "\nTesting Big_Decimal::ParseInteger()... \n";
+        std::cout << "\nTesting BigDecimal::parse_integer()... \n";
         std::cout << "\nShould fail (expects string to begin with digits) ... \n";
 
         real32 Buf[1];
@@ -1637,9 +1637,9 @@ Test_Parsing(bool only_errors = false) {
         char Input[][64] = { ".0","+1e10", "-2e10", "abc", "lOS"};
         for (size_t i = 0 ; i < ArrayCount(Input) ; ++i) {
 
-            bool Passed = !Big_Dec_Arena::ParseInteger(Input[i]);
-            Big_Dec_Arena::temp_parse_int.Normalize();
-            Buf[0] = Big_Dec_Arena::temp_parse_int.ToFloat();
+            bool Passed = !BigDec_Arena::parse_integer(Input[i]);
+            BigDec_Arena::temp_parse_int.normalize();
+            Buf[0] = BigDec_Arena::temp_parse_int.to_float();
 
             const char *CheckMsg = Passed ? "OK ( failed )"  : "ERROR";
 
@@ -1653,34 +1653,34 @@ Test_Parsing(bool only_errors = false) {
 
     {
         char NumStr[] = "4294967296";
-        Big_Dec_Arena::ParseInteger(NumStr, &A);
+        BigDec_Arena::parse_integer(NumStr, &A);
         u32 ValuesExpected[] {0x0000'0000, 0x0000'0001};
-        Expected.Set(ValuesExpected, ArrayCount(ValuesExpected),0,32);
+        Expected.set(ValuesExpected, ArrayCount(ValuesExpected),0,32);
 
         PrintTestOutput(A,A,Expected,nullptr,"A       ","Expected", "Parse 4294967296");
-        Tests.Append(A.EqualsFractional(Expected));
+        Tests.Append(A.equals_fractional(Expected));
     }
 
 
     {
 
         char NumStr[] = "999999999999999999";
-        Big_Dec_Arena::ParseInteger(NumStr, &A);
+        BigDec_Arena::parse_integer(NumStr, &A);
         //DE0 B6B3 A763 FFFF
         u32 ValuesExpected[] {0xA763'FFFF, 0x0DE0'B6B3};
-        Expected.Set(ValuesExpected, ArrayCount(ValuesExpected),0,59);
+        Expected.set(ValuesExpected, ArrayCount(ValuesExpected),0,59);
         PrintTestOutput(A,A,Expected,nullptr,"A       ","Expected", "Parse 999999999999999999");
-        Tests.Append(A.EqualsFractional(Expected));
+        Tests.Append(A.equals_fractional(Expected));
     }
 
     {
         char NumStr[] = "1000000000000000";
-        Big_Dec_Arena::ParseInteger(NumStr, &A);
+        BigDec_Arena::parse_integer(NumStr, &A);
         //3 8D7E A4C6 8000
         u32 ValuesExpected[] {0xA4C6'8000, 0x0003'8D7E};
-        Expected.Set(ValuesExpected, ArrayCount(ValuesExpected),0,49);
+        Expected.set(ValuesExpected, ArrayCount(ValuesExpected),0,49);
         PrintTestOutput(A,A,Expected,nullptr,"A       ","Expected", "Parse 1000000000000000");
-        Tests.Append(A.EqualsFractional(Expected));
+        Tests.Append(A.equals_fractional(Expected));
     }
 
     {
@@ -1690,7 +1690,7 @@ Test_Parsing(bool only_errors = false) {
         int DigitCount = MaxLen;
         for (int i = 0 ; i < MaxLen  ; --DigitCount, ++i) {
             char * SubString = ( NumStr+MaxLen-DigitCount );
-            Big_Dec_Arena::ParseInteger(SubString, &A);
+            BigDec_Arena::parse_integer(SubString, &A);
             //DE0 B6B3 A763 FFFF
             u32 ValuesExpected[][2] = {
                 {0xa763ffff, 0xde0b6b3},
@@ -1713,20 +1713,20 @@ Test_Parsing(bool only_errors = false) {
                              {0x9, 0x0}
             };
             A.Exponent = 0; //check only the bits
-            Expected.Set(ValuesExpected[i], ArrayCount(ValuesExpected[i]));
+            Expected.set(ValuesExpected[i], ArrayCount(ValuesExpected[i]));
             char TestName[64] = {'\0'};
             CatStrings("Parse ", SubString, ArrayCount(TestName), TestName);
             PrintTestOutput(A,A,Expected,nullptr,"A       ","Expected", TestName);
-            Tests.Append(A.EqualBits(Expected));
+            Tests.Append(A.equal_bits(Expected));
 
         }
     }
 
     {
         char NumStr[] = "999999999999999999999999999999999999";
-        Big_Dec_Arena::ParseInteger(NumStr, &A);
+        BigDec_Arena::parse_integer(NumStr, &A);
         u32 ValuesExpected[] {0xA763'FFFF, 0x0DE0'B6B3};
-        Expected.Set(ValuesExpected, ArrayCount(ValuesExpected));
+        Expected.set(ValuesExpected, ArrayCount(ValuesExpected));
         char TestName[64] = {'\0'};
 
         cout << "\nEYEBALL TEST: 999999999999999999999999999999999999 = " << string(A) << '\n';
@@ -1734,9 +1734,9 @@ Test_Parsing(bool only_errors = false) {
 
     {
         char NumStr[] = "1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890";
-        Big_Dec_Arena::ParseInteger(NumStr, &A);
+        BigDec_Arena::parse_integer(NumStr, &A);
 //        uint32 ValuesExpected[] {0xA763'FFFF, 0x0DE0'B6B3};
-//        Expected.Set(ValuesExpected, ArrayCount(ValuesExpected));
+//        Expected.set(ValuesExpected, ArrayCount(ValuesExpected));
 //        CheckA();
         cout << "\nEYEBALL TEST: 1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890 = " << string(A) << '\n';
     }
@@ -1755,9 +1755,9 @@ Test_Parsing(bool only_errors = false) {
 1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890\
 123456789012345678901234\
 ";
-        Big_Dec_Arena::ParseInteger(NumStr, &A);
+        BigDec_Arena::parse_integer(NumStr, &A);
 //        uint32 ValuesExpected[] {0xA763'FFFF, 0x0DE0'B6B3};
-//        Expected.Set(ValuesExpected, ArrayCount(ValuesExpected));
+//        Expected.set(ValuesExpected, ArrayCount(ValuesExpected));
 //        CheckA();
         cout << "\nEYEBALL TEST: \
 1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890\
@@ -1789,18 +1789,18 @@ Test_Parsing(bool only_errors = false) {
         for (char *Src= &S[0], *Dst=SBuf ; *Src != '\0' ; ++Src, ++Dst) {
             *Dst = *Src;
         }
-        Big_Dec_Arena::FromString(SBuf,&A);
-        A.RoundToNSignificantBits(24);
-        B.SetFloat(Challenge);
-        Tests.Append(A.EqualsFractional(B));
-        float Parsed = A.ToFloat();
+        BigDec_Arena::from_string(SBuf,&A);
+        A.round_to_n_significant_bits(24);
+        B.set_float(Challenge);
+        Tests.Append(A.equals_fractional(B));
+        float Parsed = A.to_float();
         Tests.Append(Parsed==Challenge);
 
-        cout << std::fixed << std::setprecision(20) << Challenge << " -> FromString()" << "\n";
+        cout << std::fixed << std::setprecision(20) << Challenge << " -> from_string()" << "\n";
         cout << string(A) << "\n";
-        cout << Challenge << " -> SetFloat()" << "\n";
+        cout << Challenge << " -> set_float()" << "\n";
         cout << string(B) << "\n";
-        cout << "A.ToFloat() -> " << "\n";
+        cout << "A.to_float() -> " << "\n";
         cout << Parsed << "\n";
         cout << "\n";
     }
@@ -1812,75 +1812,75 @@ Test_Parsing(bool only_errors = false) {
     {
         char DecimalStr[] = "1.0";
         float ExpectedFloat = 1.0f;
-        Big_Dec_Arena::FromString(DecimalStr, &A);
-        A.RoundToNSignificantBits(DOUBLE_PRECISION);
-        Expected.Set(0x1);
+        BigDec_Arena::from_string(DecimalStr, &A);
+        A.round_to_n_significant_bits(DOUBLE_PRECISION);
+        Expected.set(0x1);
         PrintTestOutput(A,A,Expected,nullptr,"A       ","Expected", "Parse 1.0");
-        Tests.Append(A.EqualsFractional(Expected));
+        Tests.Append(A.equals_fractional(Expected));
 
     }
 
     {
         char DecimalStr[] = "1.1";
         float ExpectedFloat = 1.1f;
-        Big_Dec_Arena::FromString(DecimalStr, &A);
-        A.RoundToNSignificantBits(DOUBLE_PRECISION);
+        BigDec_Arena::from_string(DecimalStr, &A);
+        A.round_to_n_significant_bits(DOUBLE_PRECISION);
         u32 ExpectedBits[] = {0xCCCCCCCD,0b1'0001'1001'1001'1001'100};
-        Expected.Set(ExpectedBits, ArrayCount(ExpectedBits),0,0);
+        Expected.set(ExpectedBits, ArrayCount(ExpectedBits),0,0);
         PrintTestOutput(A,A,Expected,nullptr,"A       ","Expected", "Parse 1.1");
-        Tests.Append(A.EqualsFractional(Expected));
+        Tests.Append(A.equals_fractional(Expected));
     }
 
     {
         char DecimalStr[] = "1.1";
         double ExpectedDouble = 1.1;
-        Big_Dec_Arena::FromString(DecimalStr, &A);
-        A.RoundToNSignificantBits(DOUBLE_PRECISION);
+        BigDec_Arena::from_string(DecimalStr, &A);
+        A.round_to_n_significant_bits(DOUBLE_PRECISION);
         //1.0001100110011001100110011001100110011001100110011010e0
         u32 ExpectedBits[] = {0b10011001100110011001100110011010,0b100011001100110011001};
-        Expected.Set(ExpectedBits, ArrayCount(ExpectedBits),0,Log2I(1));
-        Expected.Normalize();
+        Expected.set(ExpectedBits, ArrayCount(ExpectedBits),0,Log2I(1));
+        Expected.normalize();
         PrintTestOutput(A,A,Expected,nullptr,"A       ","Expected", "Parse 1.1");
-        Tests.Append(A.EqualsFractional(Expected));
+        Tests.Append(A.equals_fractional(Expected));
     }
 
     {
         char DecimalStr[] = "1.12";
         double ExpectedDouble = 1.12;
-        Big_Dec_Arena::FromString(DecimalStr, &A);
-            A.RoundToNSignificantBits(DOUBLE_PRECISION);
+        BigDec_Arena::from_string(DecimalStr, &A);
+            A.round_to_n_significant_bits(DOUBLE_PRECISION);
            //100011110101110000101 00011110101110000101000111101100
         u32 ExpectedBits[] = {0b00011110101110000101000111101100,0b100011110101110000101};
-        Expected.Set(ExpectedBits, ArrayCount(ExpectedBits),0,Log2I(1));
-        Expected.Normalize();
+        Expected.set(ExpectedBits, ArrayCount(ExpectedBits),0,Log2I(1));
+        Expected.normalize();
         PrintTestOutput(A,A,Expected,nullptr,"A       ","Expected", "Parse 1.12");
-        Tests.Append(A.EqualsFractional(Expected));
+        Tests.Append(A.equals_fractional(Expected));
     }
 
     {
         char DecimalStr[] = "12.98";
         double ExpectedDouble = 12.98;
-        Big_Dec_Arena::FromString(DecimalStr, &A);
-        A.RoundToNSignificantBits(DOUBLE_PRECISION);
+        BigDec_Arena::from_string(DecimalStr, &A);
+        A.round_to_n_significant_bits(DOUBLE_PRECISION);
         //11001111101011100001010001111010111000010100011110110
         u32 ExpectedBits[] = {0b01000111101011100001010001111011,0b11001111101011100001};
-        Expected.Set(ExpectedBits, ArrayCount(ExpectedBits),0,Log2I(12));
-        Expected.Normalize();
+        Expected.set(ExpectedBits, ArrayCount(ExpectedBits),0,Log2I(12));
+        Expected.normalize();
         PrintTestOutput(A,A,Expected,nullptr,"A       ","Expected", "Parse 12.98");
-        Tests.Append(A.EqualsFractional(Expected));
+        Tests.Append(A.equals_fractional(Expected));
     }
 
     {
         char DecimalStr[] = "1234.9876";
         double ExpectedDouble = 1234.9876;
-        Big_Dec_Arena::FromString(DecimalStr, &A);
-        A.RoundToNSignificantBits(DOUBLE_PRECISION);
+        BigDec_Arena::from_string(DecimalStr, &A);
+        A.round_to_n_significant_bits(DOUBLE_PRECISION);
         //1.0011010010111111001101001101011010100001011000011110e10
         u32 ExpectedBits[] = {0b10100110101101010000101100001111,0b10011010010111111001};
-        Expected.Set(ExpectedBits, ArrayCount(ExpectedBits),0,Log2I(1234));
-        Expected.Normalize();
+        Expected.set(ExpectedBits, ArrayCount(ExpectedBits),0,Log2I(1234));
+        Expected.normalize();
         PrintTestOutput(A,A,Expected,nullptr,"A       ","Expected", "Parse 1234.9876");
-        Tests.Append(A.EqualsFractional(Expected));
+        Tests.Append(A.equals_fractional(Expected));
     }
 
 
@@ -1890,14 +1890,14 @@ Test_Parsing(bool only_errors = false) {
         char DecimalStr[] = "123456789.987654321";
 
         double ExpectedDouble = 123456789.987654321;
-        Big_Dec_Arena::FromString(DecimalStr, &A);
-        A.RoundToNSignificantBits(DOUBLE_PRECISION);
+        BigDec_Arena::from_string(DecimalStr, &A);
+        A.round_to_n_significant_bits(DOUBLE_PRECISION);
         // 11101011011110011010001010111111100110101101110101000e26
         u32 ExpectedBits[] = {0b10001010111111100110101101110101,0b111010110111100110};
-        Expected.Set(ExpectedBits, ArrayCount(ExpectedBits),0,Log2I(123456789));
-        Expected.Normalize();
+        Expected.set(ExpectedBits, ArrayCount(ExpectedBits),0,Log2I(123456789));
+        Expected.normalize();
         PrintTestOutput(A,A,Expected,nullptr,"A       ","Expected", "Parse 123456789.987654321");
-        Tests.Append(A.EqualsFractional(Expected));
+        Tests.Append(A.equals_fractional(Expected));
 
     }
 
@@ -1905,18 +1905,18 @@ Test_Parsing(bool only_errors = false) {
         char DecimalStr[] = "-123456789.987654321";
 
         double ExpectedDouble = -123456789.987654321;
-        Big_Dec_Arena::FromString(DecimalStr, &A);
-        A.RoundToNSignificantBits(DOUBLE_PRECISION);
+        BigDec_Arena::from_string(DecimalStr, &A);
+        A.round_to_n_significant_bits(DOUBLE_PRECISION);
         // 11101011011110011010001010111111100110101101110101000e26
         u32 ExpectedBits[] = {0b10001010111111100110101101110101,0b111010110111100110};
-        Expected.Set(ExpectedBits, ArrayCount(ExpectedBits),1,Log2I(123456789));
-        Expected.Normalize();
+        Expected.set(ExpectedBits, ArrayCount(ExpectedBits),1,Log2I(123456789));
+        Expected.normalize();
         PrintTestOutput(A,A,Expected,nullptr,"A       ","Expected", "Parse -123456789.987654321");
-        Tests.Append(A.EqualsFractional(Expected));
+        Tests.Append(A.equals_fractional(Expected));
 
     }
 
-    Big_Dec_Arena::CloseContext(true);
+    BigDec_Arena::close_context(true);
 
     cout << "|-> " << Tests << "\n\n";
     Tests.PrintResults();
@@ -1954,8 +1954,8 @@ int Test_new_allocator_interface() {
     using std::cout;
     using std::string;
 
-    using Arena_Alloc_Of_Big_Dec_Val = ArenaAlloc<Big_Dec_Chunk>;
-    using Big_Dec_Arena = Big_Decimal<Arena_Alloc_Of_Big_Dec_Val>;
+    using ArenaChunkAlloc = ArenaAlloc<ChunkBits>;
+    using BigDec_Arena = BigDecimal<ArenaChunkAlloc>;
     cout << __func__ << "\n\n";
 
     i32 FailCount { 0 };
@@ -1965,26 +1965,26 @@ int Test_new_allocator_interface() {
 
     {
         cout << "Test #" << Tests.TestCount << "\n";
-        cout << "- BigDecimal::Release(): length == 1, capacity == 1, data.next == 0, Last == &Data, allocator.meta == nullptr \n";
+        cout << "- BigDecimal::release(): length == 1, capacity == 1, data.next == 0, sentinel == &data, allocator.meta == nullptr \n";
 
-        Big_Dec_Std::InitializeContext();
-        Big_Dec_Chunk Bits[] = {1,2,3};
+        Big_Dec_Std::initialize_context();
+        ChunkBits Bits[] = {1,2,3};
         Big_Dec_Std A;
-        A.Set(Bits,3);
+        A.set(Bits,3);
 
         cout << "Before: " << A << "\n";
-        A.Release();
+        A.release();
 
-        OK = A.Length == 1;
+        OK = A.length == 1;
         OK &= A.m_chunks_capacity == 1;
-        OK &= A.Data.Next == nullptr;
-        OK &= A.Last == &A.Data;
+        OK &= A.data.next == nullptr;
+        OK &= A.sentinel == &A.data;
 
         cout << "After : " << A << "\n";
         cout << ( OK ? "OK" : "ERROR") << "\n";
         Tests.Append(OK);
 
-        Big_Dec_Std::CloseContext();
+        Big_Dec_Std::close_context();
 
     }
 
@@ -1994,39 +1994,39 @@ int Test_new_allocator_interface() {
 
         size_t size = Kilobytes(1);
         u8 * memory = new u8[size]();
-        ArenaAlloc<Big_Dec_Chunk> alloc_1{size, memory, std_deleter};
+        ArenaAlloc<ChunkBits> alloc_1{size, memory, std_deleter};
         memory = new u8[size]();
-        ArenaAlloc<Big_Dec_Chunk> alloc_2{size, memory, std_deleter};
+        ArenaAlloc<ChunkBits> alloc_2{size, memory, std_deleter};
 
         OK = true;
         OK &= alloc_1.meta->ref_count == 1;
 
         cout << "before 1st Init Ctx()  : alloc 1 #refs ==  1 ? " << (OK ? "OK" : "ERROR") << "\n";
-        Big_Dec_Arena::InitializeContext(alloc_1);
+        BigDec_Arena::initialize_context(alloc_1);
         //NOTE(ArokhSlade##2024 09 20): 1 here, 3 static arenas, one member per static variable
-        i32 expected_ref_count = 1 + 3 + Big_Dec_Arena::s_ctx_count;
+        i32 expected_ref_count = 1 + 3 + BigDec_Arena::s_ctx_count;
         OK &= alloc_1.meta->ref_count == expected_ref_count;
         cout << "after  1st Init Ctx()  : alloc 1 #refs == " << expected_ref_count << " ? " << (OK ? "OK" : "ERROR") << "\n";
 
-        Big_Dec_Arena::CloseContext();
+        BigDec_Arena::close_context();
         OK &= alloc_1.meta->ref_count == 1;
         cout << "after  1st Close Ctx() : alloc 1 #refs ==  1 ? " << (OK ? "OK" : "ERROR") << "\n";
-        OK &= Big_Dec_Arena::s_ctx_count == 0;
+        OK &= BigDec_Arena::s_ctx_count == 0;
         cout << "                       : alloc 1 #ctx  ==  0 ? " << (OK ? "OK" : "ERROR") << "\n";
 
         OK &= alloc_2.meta->ref_count == 1;
         cout << "before 2nd Init Ctx()  : alloc 2 #refs ==  1 ? " << (OK ? "OK" : "ERROR") << "\n";
-        Big_Dec_Arena::InitializeContext(alloc_2);
+        BigDec_Arena::initialize_context(alloc_2);
         OK &= alloc_1.meta->ref_count == 1;
         cout << "after  2nd InitCtx()   : alloc 1 #refs ==  1 ? " << (OK ? "OK" : "ERROR") << "\n";
         OK &= alloc_2.meta->ref_count == expected_ref_count;
         cout << "after  2nd InitCtx()   : alloc 2 #refs == " << expected_ref_count << " ? " << (OK ? "OK" : "ERROR") << "\n";
 
 
-        Big_Dec_Arena::CloseContext();
+        BigDec_Arena::close_context();
         OK &= alloc_2.meta->ref_count == 1;
         cout << "after  2st Close Ctx() : alloc 2 #refs ==  1 ? " << (OK ? "OK" : "ERROR") << "\n";
-        OK &= Big_Dec_Arena::s_ctx_count == 0;
+        OK &= BigDec_Arena::s_ctx_count == 0;
         cout << "                       : alloc 2 #ctx  ==  0 ? " << (OK ? "OK" : "ERROR") << "\n";
 
 
@@ -2035,7 +2035,7 @@ int Test_new_allocator_interface() {
     }
 
     {
-        cout << "Big_Decimal with std::allocator - mandatory call to InitializeContext().\n";
+        cout << "BigDecimal with std::allocator - mandatory call to initialize_context().\n";
 
         OK = Big_Dec_Std::s_ctx_count == 0;
         OK &= Big_Dec_Std::s_ctx_links == nullptr;
@@ -2043,7 +2043,7 @@ int Test_new_allocator_interface() {
         cout << "Big_Dec_Std : no context variables for init : " << OK << "\n\n";
         Tests.Append(OK);
 
-        Big_Dec_Std::InitializeContext();
+        Big_Dec_Std::initialize_context();
 
         OK = Big_Dec_Std::s_ctx_count == Big_Dec_Std::TEMPORARIES_COUNT;
         Big_Dec_Std::Link *link = Big_Dec_Std::s_ctx_links;
@@ -2059,26 +2059,26 @@ int Test_new_allocator_interface() {
         Tests.Append(OK);
 
 
-        Big_Decimal my_num = Big_Decimal();
+        BigDecimal my_num = BigDecimal();
 
         unit_test_context_variables_count<Big_Dec_Std>(Tests, "user created context variable", Big_Dec_Std::TEMPORARIES_COUNT + 1);
 
-        my_num.ExtendLength();
-        my_num.Data.Next->Value = static_cast<Big_Dec_Chunk>(0x12345678);
+        my_num.extend_length();
+        my_num.data.next->value = static_cast<ChunkBits>(0x12345678);
 
         OK = true;
         OK &= my_num.m_chunks_capacity == 2;
-        OK &= my_num.Length == 2;
-        OK &= my_num.Data.Next && my_num.Data.Next->Value == static_cast<Big_Dec_Chunk>(0x12345678);
+        OK &= my_num.length == 2;
+        OK &= my_num.data.next && my_num.data.next->value == static_cast<ChunkBits>(0x12345678);
         cout << "Test #" << Tests.TestCount << "\n";
-        cout << "ExtendLength() -> new chunk allocated: " << (OK ? "OK" : "ERROR") << "\n\n";
+        cout << "extend_length() -> new chunk allocated: " << (OK ? "OK" : "ERROR") << "\n\n";
         Tests.Append(OK);
 
-        my_num.Release();
+        my_num.release();
 
         unit_test_context_variables_count<Big_Dec_Std>(Tests, "user released context variable", Big_Dec_Std::TEMPORARIES_COUNT);
 
-        Big_Dec_Std::CloseContext();
+        Big_Dec_Std::close_context();
 
         unit_test_context_variables_count<Big_Dec_Std>(Tests, "after closing context", 0);
 
@@ -2090,68 +2090,68 @@ int Test_new_allocator_interface() {
 
         memory_index capacity = Kilobytes(1);
         u8 *memory = new u8[capacity]();
-//        Arena_Allocator<Big_Dec_Chunk> std_new_arena_alloc_1{capacity, memory};
+//        Arena_Allocator<ChunkBits> std_new_arena_alloc_1{capacity, memory};
 
-        Arena_Alloc_Of_Big_Dec_Val std_new_arena_alloc_1{ capacity, memory, std_deleter};
+        ArenaChunkAlloc std_new_arena_alloc_1{ capacity, memory, std_deleter};
 
-        unit_test_context_variables_count<Big_Dec_Arena>(Tests, "Big Decimal with Arena before Init", 0);
+        unit_test_context_variables_count<BigDec_Arena>(Tests, "Big Decimal with Arena before Init", 0);
 
-        Big_Dec_Arena::InitializeContext(std_new_arena_alloc_1);
+        BigDec_Arena::initialize_context(std_new_arena_alloc_1);
 
-        unit_test_context_variables_count<Big_Dec_Arena>(Tests, "Big Decimal with Arena after Init", Big_Dec_Arena::TEMPORARIES_COUNT);
+        unit_test_context_variables_count<BigDec_Arena>(Tests, "Big Decimal with Arena after Init", BigDec_Arena::TEMPORARIES_COUNT);
 
-        Big_Dec_Arena my_num{std_new_arena_alloc_1,1,false,0};
+        BigDec_Arena my_num{std_new_arena_alloc_1,1,false,0};
 
-        unit_test_context_variables_count<Big_Dec_Arena>(Tests, "Big Decimal with Arena with 1 user variable in context", Big_Dec_Arena::TEMPORARIES_COUNT+1);
+        unit_test_context_variables_count<BigDec_Arena>(Tests, "Big Decimal with Arena with 1 user variable in context", BigDec_Arena::TEMPORARIES_COUNT+1);
 
-        my_num.ExtendLength();
-        my_num.Data.Next->Value = static_cast<Big_Dec_Chunk>(0x12345678);
+        my_num.extend_length();
+        my_num.data.next->value = static_cast<ChunkBits>(0x12345678);
 
         bool OK = true;
         OK &= my_num.m_chunks_capacity == 2;
-        OK &= my_num.Length == 2;
-        OK &= my_num.Data.Next && my_num.Data.Next->Value == static_cast<Big_Dec_Chunk>(0x12345678);
+        OK &= my_num.length == 2;
+        OK &= my_num.data.next && my_num.data.next->value == static_cast<ChunkBits>(0x12345678);
 
         cout << "Test #" << Tests.TestCount << "\n";
-        cout << "capacity increased after ExtendLength(): " << (OK ? "OK" : "ERROR") << " ( " << my_num << " )\n\n";
+        cout << "capacity increased after extend_length(): " << (OK ? "OK" : "ERROR") << " ( " << my_num << " )\n\n";
 
         Tests.Append(OK);
     }
 
     {
-        i32 old_ctx_count = Big_Dec_Arena::s_ctx_count;
+        i32 old_ctx_count = BigDec_Arena::s_ctx_count;
         {
             f32 f1=3.f;
             f32 f2=10.f;
 
             size_t user_capacity = 512;
             u8 *user_memory = new u8[user_capacity]();
-            ArenaAlloc<Big_Dec_Chunk> std_new_arena_alloc_2{user_capacity, user_memory, std_deleter};
+            ArenaAlloc<ChunkBits> std_new_arena_alloc_2{user_capacity, user_memory, std_deleter};
 
-            i32 old_ctx_count = Big_Dec_Arena::s_ctx_count;
-            Big_Dec_Arena A { std_new_arena_alloc_2, f1};;
-            Big_Dec_Arena B { std_new_arena_alloc_2, f2};;
-            A.AddFractional(B);
+            i32 old_ctx_count = BigDec_Arena::s_ctx_count;
+            BigDec_Arena A { std_new_arena_alloc_2, f1};;
+            BigDec_Arena B { std_new_arena_alloc_2, f2};;
+            A.add_fractional(B);
 
-            Big_Dec_Arena Xpcd { std_new_arena_alloc_2, 10.f+3.f};;
-            Xpcd.Normalize();
+            BigDec_Arena Xpcd { std_new_arena_alloc_2, 10.f+3.f};;
+            Xpcd.normalize();
 
-            unit_test_context_variables_count<Big_Dec_Arena>(Tests, "Big Decimal (Arena) - 3 user variables called outside of context", old_ctx_count);
+            unit_test_context_variables_count<BigDec_Arena>(Tests, "Big Decimal (Arena) - 3 user variables called outside of context", old_ctx_count);
 
             OK = true;
-            OK &= A.EqualsFractional( Xpcd);
+            OK &= A.equals_fractional( Xpcd);
             cout << "Test #" << Tests.TestCount << " - " << f1 << " + " << f2 << " = \n";
             cout << string(A) << " ( " << string(Xpcd) << " ) \n\n";
             Tests.Append(OK);
         }
 
         {
-            unit_test_context_variables_count<Big_Dec_Arena>(Tests, "Big Decimal (Arena) - new scope, not doing anything", old_ctx_count);
+            unit_test_context_variables_count<BigDec_Arena>(Tests, "Big Decimal (Arena) - new scope, not doing anything", old_ctx_count);
 
-            Big_Dec_Arena::CloseContext();
+            BigDec_Arena::close_context();
             //TODO: free memory
 
-            unit_test_context_variables_count<Big_Dec_Arena>(Tests, "Big Decimal (Arena) - same new scope, after closing context", 0);
+            unit_test_context_variables_count<BigDec_Arena>(Tests, "Big Decimal (Arena) - same new scope, after closing context", 0);
         }
 
         {
@@ -2163,11 +2163,11 @@ int Test_new_allocator_interface() {
 
             constexpr i32 BIG_DEC_BUF_SIZE = Kilobytes(1);
             u8 *big_dec_buf = new u8[BIG_DEC_BUF_SIZE]();
-            Arena_Alloc_Of_Big_Dec_Val std_new_arena_alloc_4{BIG_DEC_BUF_SIZE, big_dec_buf, std_deleter};
+            ArenaChunkAlloc std_new_arena_alloc_4{BIG_DEC_BUF_SIZE, big_dec_buf, std_deleter};
 
-            Big_Dec_Arena::InitializeContext(std_new_arena_alloc_4);
+            BigDec_Arena::initialize_context(std_new_arena_alloc_4);
 
-            Big_Dec_Arena my_num { std_new_arena_alloc_4, 0.f};;
+            BigDec_Arena my_num { std_new_arena_alloc_4, 0.f};;
             char *my_num_str = to_chars(my_num, std_new_arena_alloc_3);
             cout << my_num_str << "\n";
 
@@ -2185,14 +2185,14 @@ int Test_new_allocator_interface() {
         }
 
         {
-            Big_Dec_Arena a{1};
+            BigDec_Arena a{1};
             std::stringstream ss;
             ss << a;
             std::string s = ss.str();
             OK = true;
             ss.str("");
             ss << "+";
-            for (int i = 0 ; i < sizeof(Big_Dec_Chunk) * 2 - 1 ; ++i) {
+            for (int i = 0 ; i < sizeof(ChunkBits) * 2 - 1 ; ++i) {
                 ss << '0';
             }
             ss << "1 E0[0]";
@@ -2213,10 +2213,10 @@ int Test_new_allocator_interface() {
         }
 
         {
-            Big_Dec_Arena my_num {0.f};
-            unit_test_context_variables_count<Big_Dec_Arena>(Tests, " - ctor(float) with default arena allocator\n", Big_Dec_Arena::TEMPORARIES_COUNT + 1);
+            BigDec_Arena my_num {0.f};
+            unit_test_context_variables_count<BigDec_Arena>(Tests, " - ctor(float) with default arena allocator\n", BigDec_Arena::TEMPORARIES_COUNT + 1);
 
-            Big_Dec_Std::InitializeContext();
+            Big_Dec_Std::initialize_context();
 
             Big_Dec_Std my_num_std {1.f};
             unit_test_context_variables_count<Big_Dec_Std>(Tests, " - ctor(float) with default std::allocator\n", Big_Dec_Std::TEMPORARIES_COUNT + 1);
@@ -2224,7 +2224,7 @@ int Test_new_allocator_interface() {
 
         {
             OK = true;
-            std::allocator<Big_Dec_Chunk> std_alloc{};
+            std::allocator<ChunkBits> std_alloc{};
             Big_Dec_Std A {std_alloc, 1, false, 0};
             Big_Dec_Std A_implicit {1.f};
             Big_Dec_Std B {std_alloc, 1, false, 0};
@@ -2232,13 +2232,13 @@ int Test_new_allocator_interface() {
 
 
 
-            OK &= A.EqualsInteger(A_implicit);
-            OK &= B.EqualsInteger(A_implicit);
-            OK &= B_copy.EqualsInteger(A_implicit);
+            OK &= A.equals_integer(A_implicit);
+            OK &= B.equals_integer(A_implicit);
+            OK &= B_copy.equals_integer(A_implicit);
 
             //NOTE(ArokhSlade##2024 09 04): cross-type operations not supported: B_copy is of different type than A_Arena
-//            Big_Dec_Arena A_Arena {0.f};
-//            OK &= B_copy.EqualsInteger(A_Arena);
+//            BigDec_Arena A_Arena {0.f};
+//            OK &= B_copy.equals_integer(A_Arena);
 
             cout << "Test# " << Tests.TestCount << " - try out all constructors with std allocator\n";
             cout << ( OK ? "PASSED" : "ERROR" ) << "\n";
@@ -2248,8 +2248,8 @@ int Test_new_allocator_interface() {
 
         {
             //finished with all the tests
-            Big_Dec_Arena::CloseContext(true);
-            Big_Dec_Std::CloseContext(true);
+            BigDec_Arena::close_context(true);
+            Big_Dec_Std::close_context(true);
         }
     }
 
@@ -2264,16 +2264,16 @@ void test_CopyBitsTo(bool& OK, bool& only_errors, test_result& Tests)
     using std::cout;
     using std::string;
 
-    using Arena_Alloc_Of_Big_Dec_Val = ArenaAlloc<Big_Dec_Chunk>;
-    using Big_Dec_Arena = Big_Decimal<Arena_Alloc_Of_Big_Dec_Val>;
-    HardAssert(Big_Dec_Arena::s_is_context_initialized);
+    using ArenaChunkAlloc = ArenaAlloc<ChunkBits>;
+    using BigDec_Arena = BigDecimal<ArenaChunkAlloc>;
+    HardAssert(BigDec_Arena::s_is_context_initialized);
 
-    using T_Chunk = Big_Dec_Chunk;
-    constexpr i32 chunk_bits = Big_Dec_Chunk_Width;
+    using T_Chunk = ChunkBits;
+    constexpr i32 chunk_bits = CHUNK_WIDTH;
     constexpr i32 top_bits = chunk_bits / 2 - 1;
     T_Chunk test_value = GetMaskBottomN<T_Chunk>(top_bits);
 
-    Big_Dec_Arena in{test_value};
+    BigDec_Arena in{test_value};
 
     constexpr i32 slots_per_chunk = sizeof(T_Chunk) / sizeof(T_Slot);
     constexpr i32 chunks_per_slot = sizeof(T_Slot) / sizeof(T_Chunk);
@@ -2281,7 +2281,7 @@ void test_CopyBitsTo(bool& OK, bool& only_errors, test_result& Tests)
     constexpr i32 slot_count = (top_bits + slot_bits-1) / slot_bits;
 
     T_Slot slots[slot_count] {};
-    in.CopyBitsTo<T_Slot>(slots, slot_count);
+    in.copy_bits_to<T_Slot>(slots, slot_count);
     T_Slot exp[slot_count] {};
     T_Slot slot_mask = GetMaskBottomN<T_Slot>(slot_bits);
     for (i32 slot_idx = 0 ; slot_idx < slot_count-1 ; ++slot_idx) {
@@ -2320,20 +2320,20 @@ void test_CopyBitsTo(bool& OK, bool& only_errors, test_result& Tests)
 }
 
 template<typename T_Slot>
-void test_CopyBitsTo_2(bool& OK, bool& only_errors, test_result& Tests, Big_Dec_Chunk test_value)
+void test_CopyBitsTo_2(bool& OK, bool& only_errors, test_result& Tests, ChunkBits test_value)
 {
     using std::cout;
     using std::string;
 
-    using Arena_Alloc_Of_Big_Dec_Val = ArenaAlloc<Big_Dec_Chunk>;
-    using Big_Dec_Arena = Big_Decimal<Arena_Alloc_Of_Big_Dec_Val>;
-    HardAssert(Big_Dec_Arena::s_is_context_initialized);
+    using ArenaChunkAlloc = ArenaAlloc<ChunkBits>;
+    using BigDec_Arena = BigDecimal<ArenaChunkAlloc>;
+    HardAssert(BigDec_Arena::s_is_context_initialized);
 
-    using T_Chunk = Big_Dec_Chunk;
-    constexpr i32 chunk_bits = Big_Dec_Chunk_Width;
-    i32 top_bits = BitScanReverse<Big_Dec_Chunk>(test_value) + 1;
+    using T_Chunk = ChunkBits;
+    constexpr i32 chunk_bits = CHUNK_WIDTH;
+    i32 top_bits = BitScanReverse<ChunkBits>(test_value) + 1;
 
-    Big_Dec_Arena in{test_value};
+    BigDec_Arena in{test_value};
 
     constexpr i32 slots_per_chunk = sizeof(T_Chunk) / sizeof(T_Slot);
     constexpr i32 chunks_per_slot = sizeof(T_Slot) / sizeof(T_Chunk);
@@ -2342,7 +2342,7 @@ void test_CopyBitsTo_2(bool& OK, bool& only_errors, test_result& Tests, Big_Dec_
 
     T_Slot *slots = new T_Slot[slot_count] {};
 
-    in.CopyBitsTo<T_Slot>(slots, slot_count);
+    in.copy_bits_to<T_Slot>(slots, slot_count);
 
     T_Slot *exp = new T_Slot[slot_count] {};
     T_Chunk chunk_mask = GetMaskBottomN<T_Chunk>(chunk_bits < slot_bits ? chunk_bits : slot_bits);
@@ -2385,22 +2385,22 @@ void test_CopyBitsTo_2(bool& OK, bool& only_errors, test_result& Tests, Big_Dec_
 
 
 template<typename T_Slot>
-void test_CopyBitsTo_3(bool& OK, bool& only_errors, test_result& Tests, Big_Dec_Chunk *chunks, i32 chunks_count)
+void test_CopyBitsTo_3(bool& OK, bool& only_errors, test_result& Tests, ChunkBits *chunks, i32 chunks_count)
 {
     HardAssert(chunks_count >= 0);
 
     using std::cout;
     using std::string;
 
-    using Arena_Alloc_Of_Big_Dec_Val = ArenaAlloc<Big_Dec_Chunk>;
-    using Big_Dec_Arena = Big_Decimal<Arena_Alloc_Of_Big_Dec_Val>;
-    HardAssert(Big_Dec_Arena::s_is_context_initialized);
+    using ArenaChunkAlloc = ArenaAlloc<ChunkBits>;
+    using BigDec_Arena = BigDecimal<ArenaChunkAlloc>;
+    HardAssert(BigDec_Arena::s_is_context_initialized);
 
-    using T_Chunk = Big_Dec_Chunk;
-    i32 top_bits = BitScanReverse<Big_Dec_Chunk>(chunks[chunks_count-1])+1;
-    i32 chunk_bits = Big_Dec_Chunk_Width * (chunks_count - 1) + top_bits;
+    using T_Chunk = ChunkBits;
+    i32 top_bits = BitScanReverse<ChunkBits>(chunks[chunks_count-1])+1;
+    i32 chunk_bits = CHUNK_WIDTH * (chunks_count - 1) + top_bits;
 
-    Big_Dec_Arena in{chunks, chunks_count};
+    BigDec_Arena in{chunks, chunks_count};
 
     constexpr i32 slots_per_chunk = sizeof(T_Chunk) / sizeof(T_Slot);
     constexpr i32 chunks_per_slot = sizeof(T_Slot) / sizeof(T_Chunk);
@@ -2409,7 +2409,7 @@ void test_CopyBitsTo_3(bool& OK, bool& only_errors, test_result& Tests, Big_Dec_
 
     T_Slot *slots = new T_Slot[slot_count] {};
 
-    in.CopyBitsTo<T_Slot>(slots, slot_count);
+    in.copy_bits_to<T_Slot>(slots, slot_count);
 
     T_Slot *exp = new T_Slot[slot_count] {};
 
@@ -2417,7 +2417,7 @@ void test_CopyBitsTo_3(bool& OK, bool& only_errors, test_result& Tests, Big_Dec_
         T_Chunk chunk_mask = 0x0;
         i32 total_slot_idx = 0;
         for (i32 chunk_idx = 0 ; chunk_idx < chunks_count ; ++chunk_idx) {
-            chunk_mask = GetMaskBottomN<T_Chunk>(slot_width > Big_Dec_Chunk_Width ? Big_Dec_Chunk_Width : slot_width);
+            chunk_mask = GetMaskBottomN<T_Chunk>(slot_width > CHUNK_WIDTH ? CHUNK_WIDTH : slot_width);
             for (i32 slot_idx = 0 ; slot_idx < slots_per_chunk ; ++slot_idx) {
                 if (total_slot_idx == slot_count) break;
 
@@ -2432,7 +2432,7 @@ void test_CopyBitsTo_3(bool& OK, bool& only_errors, test_result& Tests, Big_Dec_
             for (i32 chunk_idx = 0 ; chunk_idx < chunks_per_slot ; ++chunk_idx) {
                 if (total_chunk_idx == chunks_count) break;
                 T_Slot shifted_chunk = chunks[total_chunk_idx];
-                shifted_chunk = SafeShiftLeft(shifted_chunk, Big_Dec_Chunk_Width * chunk_idx);
+                shifted_chunk = SafeShiftLeft(shifted_chunk, CHUNK_WIDTH * chunk_idx);
                 exp[slot_idx] |= shifted_chunk;
                 ++total_chunk_idx;
             }
@@ -2477,8 +2477,8 @@ int Test_variable_chunkment_size(bool only_errors=false) {
     using std::cout;
     using std::string;
 
-    using Arena_Alloc_Of_Big_Dec_Val = ArenaAlloc<Big_Dec_Chunk>;
-    using Big_Dec_Arena = Big_Decimal<Arena_Alloc_Of_Big_Dec_Val>;
+    using ArenaChunkAlloc = ArenaAlloc<ChunkBits>;
+    using BigDec_Arena = BigDecimal<ArenaChunkAlloc>;
     cout << __func__ << "\n\n";
 
     i32 FailCount { 0 };
@@ -2489,29 +2489,29 @@ int Test_variable_chunkment_size(bool only_errors=false) {
 
     size_t size = Kilobytes(512);
     u8 * memory = new u8[size]();
-    ArenaAlloc<Big_Dec_Chunk> alloc{size, memory, std_deleter};
-    Big_Dec_Arena::InitializeContext(alloc);
+    ArenaAlloc<ChunkBits> alloc{size, memory, std_deleter};
+    BigDec_Arena::initialize_context(alloc);
     {
 
         cout << "Test #" << Tests.TestCount << "\n";
 
-        Big_Dec_Arena A{};
-        Big_Dec_Chunk vals[] = {1,1};
-        A.Set(vals,2);
+        BigDec_Arena A{};
+        ChunkBits vals[] = {1,1};
+        A.set(vals,2);
 
         i32 ctx_count = 0;
-        ctx_count = Big_Dec_Arena::s_ctx_links->length();
+        ctx_count = BigDec_Arena::s_ctx_links->length();
         cout << ctx_count << "\n";
 
-        Big_Dec_Arena B{2};
+        BigDec_Arena B{2};
 
-        ctx_count = Big_Dec_Arena::s_ctx_links->length();
+        ctx_count = BigDec_Arena::s_ctx_links->length();
         cout << ctx_count << "\n";
 
-        Big_Dec_Arena C{A};
-        C.MulInteger(B);
+        BigDec_Arena C{A};
+        C.mul_integer(B);
 
-        ctx_count = Big_Dec_Arena::s_ctx_links->length();
+        ctx_count = BigDec_Arena::s_ctx_links->length();
         cout << ctx_count << "\n";
 
         cout << A << "\n";
@@ -2527,10 +2527,10 @@ int Test_variable_chunkment_size(bool only_errors=false) {
         cout << "Test #" << Tests.TestCount << "\n";
         cout << "Integer Addition" << Tests.TestCount << "\n";
 
-        Big_Dec_Arena A{0xFF,false,0};
-        Big_Dec_Arena B{0xFF,false,0};
+        BigDec_Arena A{0xFF,false,0};
+        BigDec_Arena B{0xFF,false,0};
         for (i32 i = 0 ; i < 1000 ; ++i) {
-            A.AddIntegerSigned(B);
+            A.add_integer_signed(B);
             cout << A << "\n";
         }
 
@@ -2542,10 +2542,10 @@ int Test_variable_chunkment_size(bool only_errors=false) {
         cout << "Test #" << Tests.TestCount << "\n";
         cout << "(eyeball test)" << "\n";
 
-        Big_Dec_Arena A{0x10,false,0};
-        Big_Dec_Arena B{0x2,false,0};
+        BigDec_Arena A{0x10,false,0};
+        BigDec_Arena B{0x2,false,0};
         for (i32 i = 0 ; i < 16; ++i) {
-            A.MulInteger(B);
+            A.mul_integer(B);
             cout << A << "\n";
         }
         OK = true;
@@ -2553,15 +2553,15 @@ int Test_variable_chunkment_size(bool only_errors=false) {
     }
 
     {
-        Big_Dec_Chunk vals[] {0x0d,0xf3,0x10};
-        Big_Dec_Arena A{vals,3};
-        Big_Dec_Arena B{0xd};
-        Big_Dec_Arena C{A};
-        C.SubIntegerUnsignedPositive(B);
-        Big_Dec_Chunk exp[] {0x0, 0xf3, 0x10};
-        Big_Dec_Arena E{exp,3};
+        ChunkBits vals[] {0x0d,0xf3,0x10};
+        BigDec_Arena A{vals,3};
+        BigDec_Arena B{0xd};
+        BigDec_Arena C{A};
+        C.sub_integer_unsigned_positive(B);
+        ChunkBits exp[] {0x0, 0xf3, 0x10};
+        BigDec_Arena E{exp,3};
 
-        OK = C.EqualsInteger(E);
+        OK = C.equals_integer(E);
 
         if (!only_errors || !OK) {
             cout << "Test #" << Tests.TestCount << "\n";
@@ -2577,26 +2577,26 @@ int Test_variable_chunkment_size(bool only_errors=false) {
     }
 
     {
-        Big_Dec_Chunk values_A[] = {0x0,0x0,0x0,0x0,0x1};
-        Big_Dec_Chunk values_B[] = {-1,-1,-1,-1,};
-        Big_Dec_Arena A{values_A, 5};
-        Big_Dec_Arena B{values_B, 4};
-        Big_Dec_Arena C{A};
+        ChunkBits values_A[] = {0x0,0x0,0x0,0x0,0x1};
+        ChunkBits values_B[] = {-1,-1,-1,-1,};
+        BigDec_Arena A{values_A, 5};
+        BigDec_Arena B{values_B, 4};
+        BigDec_Arena C{A};
 
 
-        C.SubIntegerUnsignedPositive(B);
+        C.sub_integer_unsigned_positive(B);
 
         OK = true;
         i32 expected_length = 1;
-        OK &= C.Length == expected_length;
+        OK &= C.length == expected_length;
 
         if (!only_errors || !OK) {
             cout << "Test #" << Tests.TestCount << "\n";
-            cout << " 1 0 0 0 0 - 0 9 9 9 = 1 (correctly updated Length = 1) \n";
+            cout << " 1 0 0 0 0 - 0 9 9 9 = 1 (correctly updated length = 1) \n";
             cout << A << "\n";
             cout << B << "\n";
             cout << C << "\n";
-            cout << "Length = " << C.Length << " ( Expected: " << expected_length << " )\n";
+            cout << "length = " << C.length << " ( Expected: " << expected_length << " )\n";
             cout << (OK ? "OK" : "ERROR") << "\n";
         }
 
@@ -2604,20 +2604,20 @@ int Test_variable_chunkment_size(bool only_errors=false) {
     }
 
     {
-        Big_Dec_Chunk val_in = ~Big_Dec_Chunk(0ull);
-        Big_Dec_Arena in{val_in};
+        ChunkBits val_in = ~ChunkBits(0ull);
+        BigDec_Arena in{val_in};
 
-        Big_Dec_Chunk values_exp[] = {Big_Dec_Chunk(~1ull), 0x1};
-        Big_Dec_Arena exp{values_exp, 2};
+        ChunkBits values_exp[] = {ChunkBits(~1ull), 0x1};
+        BigDec_Arena exp{values_exp, 2};
 
-        Big_Dec_Arena out{in};
+        BigDec_Arena out{in};
         i32 shift_amount = 1;
 
-        out.ShiftLeft(shift_amount);
+        out.shift_left(shift_amount);
 
         OK = true;
 
-        OK &= out.EqualsInteger(exp);
+        OK &= out.equals_integer(exp);
 
         if (!only_errors || !OK) {
             cout << "Test #" << Tests.TestCount << "\n";
@@ -2633,10 +2633,10 @@ int Test_variable_chunkment_size(bool only_errors=false) {
 
 
     {
-        Big_Dec_Chunk values_in[] = {1,0,0,0,1};
-        Big_Dec_Arena A{values_in, 5};
-        i32 msb_exp = Big_Dec_Chunk_Width * 4;
-        i32 msb_out = A.GetMSB();
+        ChunkBits values_in[] = {1,0,0,0,1};
+        BigDec_Arena A{values_in, 5};
+        i32 msb_exp = CHUNK_WIDTH * 4;
+        i32 msb_out = A.get_msb();
 
         OK = true;
 
@@ -2655,11 +2655,11 @@ int Test_variable_chunkment_size(bool only_errors=false) {
 
 
     {
-        Big_Dec_Chunk values_in[] = {1,0,0,0,1};
-        Big_Dec_Arena A{values_in, 5};
-        i32 wanted_idx = Big_Dec_Chunk_Width * 4;
+        ChunkBits values_in[] = {1,0,0,0,1};
+        BigDec_Arena A{values_in, 5};
+        i32 wanted_idx = CHUNK_WIDTH * 4;
         bool bit_exp = true;
-        bool bit_out = A.GetBit(wanted_idx);
+        bool bit_out = A.get_bit(wanted_idx);
 
         OK = true;
 
@@ -2667,7 +2667,7 @@ int Test_variable_chunkment_size(bool only_errors=false) {
 
         if (!only_errors || !OK) {
             cout << "Test #" << Tests.TestCount << "\n";
-            cout << "001 000 000 000 001 -> GetBit() at last (lowest) index: " << wanted_idx << "\n";
+            cout << "001 000 000 000 001 -> get_bit() at last (lowest) index: " << wanted_idx << "\n";
             cout << bit_out << "\n";
             cout << "( " << bit_exp << " )\n";
             cout << (OK ? "OK" : "ERROR") << "\n";
@@ -2678,17 +2678,17 @@ int Test_variable_chunkment_size(bool only_errors=false) {
 
 
     {
-        Big_Dec_Chunk values_in[] = {0,0,0,0,1};
-        Big_Dec_Arena in{values_in, 5};
-        Big_Dec_Arena out{in};
-        Big_Dec_Chunk values_exp[] = {0,0,0,1,0};
-        Big_Dec_Arena exp{values_exp, 5};
-        i32 shift_amount = Big_Dec_Chunk_Width;
+        ChunkBits values_in[] = {0,0,0,0,1};
+        BigDec_Arena in{values_in, 5};
+        BigDec_Arena out{in};
+        ChunkBits values_exp[] = {0,0,0,1,0};
+        BigDec_Arena exp{values_exp, 5};
+        i32 shift_amount = CHUNK_WIDTH;
 
-        out.ShiftRight(shift_amount);
+        out.shift_right(shift_amount);
 
         OK = true;
-        OK &= out.EqualsInteger(exp);
+        OK &= out.equals_integer(exp);
 
         if (!only_errors || !OK) {
             cout << "Test #" << Tests.TestCount << "\n";
@@ -2703,16 +2703,16 @@ int Test_variable_chunkment_size(bool only_errors=false) {
     }
 
     {
-        Big_Dec_Chunk values_in[] = {0,0,0,0,1};
-        Big_Dec_Arena in{values_in, 5};
-        Big_Dec_Arena out{in};
-        Big_Dec_Arena exp{1};
-        i32 shift_amount = Big_Dec_Chunk_Width*4;
+        ChunkBits values_in[] = {0,0,0,0,1};
+        BigDec_Arena in{values_in, 5};
+        BigDec_Arena out{in};
+        BigDec_Arena exp{1};
+        i32 shift_amount = CHUNK_WIDTH*4;
 
-        out.ShiftRight(shift_amount);
+        out.shift_right(shift_amount);
 
         OK = true;
-        OK &= out.EqualsInteger(exp);
+        OK &= out.equals_integer(exp);
 
         if (!only_errors || !OK) {
             cout << "Test #" << Tests.TestCount << "\n";
@@ -2754,18 +2754,18 @@ int Test_variable_chunkment_size(bool only_errors=false) {
 
     {
         char in[] = "256";
-        Big_Dec_Arena out{};
+        BigDec_Arena out{};
         u8 exp_val[] = {0,1};
-        Big_Dec_Arena exp{exp_val,2};
+        BigDec_Arena exp{exp_val,2};
 
-        Big_Dec_Arena::ParseInteger(in, &out);
+        BigDec_Arena::parse_integer(in, &out);
 
         OK = true;
-        OK &= out.EqualsInteger(exp);
+        OK &= out.equals_integer(exp);
 
         if (!only_errors || !OK) {
             cout << "Test #" << Tests.TestCount << "\n";
-            cout << "ParseInteger( " << in << " )\n";
+            cout << "parse_integer( " << in << " )\n";
             cout << "  " << out<< "\n";
             cout << "( " << exp << " )\n";
             cout << (OK ? "OK" : "ERROR") << "\n";
@@ -2777,18 +2777,18 @@ int Test_variable_chunkment_size(bool only_errors=false) {
 
     {
         char in[] = "99999999";
-        Big_Dec_Arena out{};
+        BigDec_Arena out{};
         u8 exp_val[] = {0xFF, 0xE0, 0xF5, 0x5};
-        Big_Dec_Arena exp{exp_val,ArrayCount(exp_val)};
+        BigDec_Arena exp{exp_val,ArrayCount(exp_val)};
 
-        Big_Dec_Arena::ParseInteger(in, &out);
+        BigDec_Arena::parse_integer(in, &out);
 
         OK = true;
-        OK &= out.EqualsInteger(exp);
+        OK &= out.equals_integer(exp);
 
         if (!only_errors || !OK) {
             cout << "Test #" << Tests.TestCount << "\n";
-            cout << "ParseInteger( " << in << " )\n";
+            cout << "parse_integer( " << in << " )\n";
             cout << "  " << out<< "\n";
             cout << "( " << exp << " )\n";
             cout << (OK ? "OK" : "ERROR") << "\n";
@@ -2797,12 +2797,12 @@ int Test_variable_chunkment_size(bool only_errors=false) {
     }
 
     {
-        Big_Dec_Chunk chunks[] { -1, -1, -1, -1 };
-        Big_Dec_Arena in{chunks, ArrayCount(chunks),false,0};
+        ChunkBits chunks[] { -1, -1, -1, -1 };
+        BigDec_Arena in{chunks, ArrayCount(chunks),false,0};
         bool out = false;
         bool exp = true;
         i32 search_idx = 24;
-        out = in.GetBit(search_idx);
+        out = in.get_bit(search_idx);
 
 
         OK = true;
@@ -2828,7 +2828,7 @@ int Test_variable_chunkment_size(bool only_errors=false) {
     }
 
     {
-        Big_Dec_Chunk test_value = SafeShiftLeft(1,Big_Dec_Chunk_Width-1) | 1;
+        ChunkBits test_value = SafeShiftLeft(1,CHUNK_WIDTH-1) | 1;
         test_CopyBitsTo_2<u8>(OK, only_errors, Tests , test_value);
         test_CopyBitsTo_2<u16>(OK, only_errors, Tests, test_value);
         test_CopyBitsTo_2<u32>(OK, only_errors, Tests, test_value);
@@ -2836,7 +2836,7 @@ int Test_variable_chunkment_size(bool only_errors=false) {
     }
 
     {
-        Big_Dec_Chunk test_chunks[] = {1,1,1,1,1};
+        ChunkBits test_chunks[] = {1,1,1,1,1};
 
         test_CopyBitsTo_3<u8>(OK, only_errors, Tests , test_chunks, ArrayCount(test_chunks));
         test_CopyBitsTo_3<u16>(OK, only_errors, Tests, test_chunks, ArrayCount(test_chunks));
@@ -2846,15 +2846,15 @@ int Test_variable_chunkment_size(bool only_errors=false) {
 
     {
         using T_Slot = u32;
-        Big_Dec_Chunk chunks[] { -1, -1, -1, -1 };
+        ChunkBits chunks[] { -1, -1, -1, -1 };
         constexpr i32 chunk_count = ArrayCount(chunks);
-        Big_Dec_Arena in{chunks, chunk_count, false,0};
+        BigDec_Arena in{chunks, chunk_count, false,0};
         constexpr i32 slots_per_chunk = sizeof(chunks[0]) / sizeof(T_Slot);
         constexpr i32 chunks_per_slot = sizeof(T_Slot) / sizeof(chunks[0]);
         constexpr i32 slot_count = chunks_per_slot ? (chunk_count + chunks_per_slot - 1) / chunks_per_slot : chunk_count * slots_per_chunk;
         T_Slot slots[slot_count] {};
 
-        in.CopyBitsTo<T_Slot>(slots, slot_count);
+        in.copy_bits_to<T_Slot>(slots, slot_count);
 
         OK = true;
         for (i32 slot_idx = 0 ; slot_idx < slot_count ; ++slot_idx) {
@@ -2889,9 +2889,9 @@ int Test_variable_chunkment_size(bool only_errors=false) {
 
     {
         using T_Slot = u64;
-        Big_Dec_Chunk chunks[] { ~0ull, ~0ull, ~0ull, ~0ull };
+        ChunkBits chunks[] { ~0ull, ~0ull, ~0ull, ~0ull };
         constexpr i32 chunk_count = ArrayCount(chunks);
-        Big_Dec_Arena in{chunks, chunk_count, false,0};
+        BigDec_Arena in{chunks, chunk_count, false,0};
         constexpr i32 slots_per_chunk = sizeof(chunks[0]) / sizeof(T_Slot);
         constexpr i32 chunks_per_slot = sizeof(T_Slot) / sizeof(chunks[0]);
         i32 slot_count = chunks_per_slot ? DivCeil(chunk_count,chunks_per_slot) : chunk_count * slots_per_chunk;
@@ -2902,15 +2902,15 @@ int Test_variable_chunkment_size(bool only_errors=false) {
         for (i32 i_slot = 0 ; i_slot < slot_count-1 ; ++i_slot) {
             exp[i_slot] = ~0ull;
         }
-        i32 src_bytes = chunk_count * sizeof(Big_Dec_Chunk);
+        i32 src_bytes = chunk_count * sizeof(ChunkBits);
         i32 bytes_left = src_bytes - (slot_count-1)*sizeof(T_Slot);
         T_Slot mask = GetMaskBottomN<T_Slot>(8*bytes_left);
         exp[slot_count-1] = mask;
 
-        in.CopyBitsTo<T_Slot>(out, slot_count);
+        in.copy_bits_to<T_Slot>(out, slot_count);
 
         OK = true;
-        OK &= (sizeof(u64)*(slot_count - 1)) / (sizeof(Big_Dec_Chunk) * chunk_count) == 0;
+        OK &= (sizeof(u64)*(slot_count - 1)) / (sizeof(ChunkBits) * chunk_count) == 0;
 
         for (i32 slot_idx = 0 ; slot_idx < slot_count ; ++slot_idx) {
             OK &= out[slot_idx] == exp[slot_idx];
@@ -2945,19 +2945,19 @@ int Test_variable_chunkment_size(bool only_errors=false) {
 
     {
         float in { 0x1.000002p+0};
-        Big_Dec_Arena out{};
-        Big_Dec_Arena exp{0x800001, false, 0};
+        BigDec_Arena out{};
+        BigDec_Arena exp{0x800001, false, 0};
 
-        out.SetFloat(in);
+        out.set_float(in);
 
         OK = true;
-        OK &= out.EqualsFractional(exp);
+        OK &= out.equals_fractional(exp);
 
 
         if (!only_errors || !OK) {
             cout << "Test #" << Tests.TestCount << "\n";
             cout << std::hex;
-            cout << "SetFloat( " << in << " )\n";
+            cout << "set_float( " << in << " )\n";
             cout << "out:  " << out << "\n";
             cout << "exp:( " << exp << " )\n";
             cout << (OK ? "OK" : "ERROR") << "\n";
@@ -2967,17 +2967,17 @@ int Test_variable_chunkment_size(bool only_errors=false) {
     }
 
     {
-        Big_Dec_Chunk values[] {0x0, 0x1, 0x2, 0x3};
-        Big_Dec_Arena a{alloc, &values[0], ArrayCount(values)};
+        ChunkBits values[] {0x0, 0x1, 0x2, 0x3};
+        BigDec_Arena a{alloc, &values[0], ArrayCount(values)};
         if (!only_errors || !OK) {
             cout << "test #" << Tests.TestCount << " : ctor(allocator, array) \n";
         }
         OK = true;
-        OK &= a.Length == ArrayCount(values);
-        Big_Dec_Arena::Chunk_List *cur = &a.Data;
-        for (i32 i = 0 ; i < a.Length ; ++i) {
-            OK &= cur->Value == values[i];
-            cur = cur->Next;
+        OK &= a.length == ArrayCount(values);
+        BigDec_Arena::ChunkList *cur = &a.data;
+        for (i32 i = 0 ; i < a.length ; ++i) {
+            OK &= cur->value == values[i];
+            cur = cur->next;
         }
 
         cout << (OK ? "OK" : "ERROR") << " : " << a << "\n";
@@ -2988,8 +2988,8 @@ int Test_variable_chunkment_size(bool only_errors=false) {
 
     {
         f32 in = 3/7.f;
-        Big_Dec_Arena a{in};
-        f32 out = a.ToFloat();
+        BigDec_Arena a{in};
+        f32 out = a.to_float();
         OK = true;
         OK &= in == out;
 
@@ -3004,8 +3004,8 @@ int Test_variable_chunkment_size(bool only_errors=false) {
 
     {
         f64 in = 2./3.;
-        Big_Dec_Arena a{in};
-        f64 out = a.ToDouble();
+        BigDec_Arena a{in};
+        f64 out = a.to_double();
         OK = true;
         OK &= in == out;
 
@@ -3021,8 +3021,8 @@ int Test_variable_chunkment_size(bool only_errors=false) {
 
     {
         f64 in = std::sqrt(2.);
-        Big_Dec_Arena a{in};
-        f64 out = a.ToDouble();
+        BigDec_Arena a{in};
+        f64 out = a.to_double();
         OK = true;
         OK &= in == out;
 
@@ -3038,16 +3038,16 @@ int Test_variable_chunkment_size(bool only_errors=false) {
 
     {
         u64 in[] {0x0,0x0,0x1};
-        Big_Dec_Arena out{in, ArrayCount(in)};
-        i32 expected_length = (sizeof(u64) / sizeof(Big_Dec_Chunk)) * 2 + 1;
+        BigDec_Arena out{in, ArrayCount(in)};
+        i32 expected_length = (sizeof(u64) / sizeof(ChunkBits)) * 2 + 1;
         OK = true;
-        OK &= out.Length == expected_length;
+        OK &= out.length == expected_length;
 
         if (!only_errors || !OK) {
             cout << "test #" << Tests.TestCount << " : initialize from array but don't copy leading zeroes \n";
             std::printf("in  : (hex){%#016llx, %016llx, %016llx}\n", in[0], in[1], in[2]);
             cout << out << "\n";
-            std::printf("Length  : %d\n", out.Length);
+            std::printf("length  : %d\n", out.length);
             std::printf("(expect : %d)\n", expected_length);
         }
 
@@ -3055,7 +3055,7 @@ int Test_variable_chunkment_size(bool only_errors=false) {
     }
 
 
-    Big_Dec_Arena::CloseContext(true);
+    BigDec_Arena::close_context(true);
 
     cout << "|-> " << Tests << "\n\n";
     Tests.PrintResults();
