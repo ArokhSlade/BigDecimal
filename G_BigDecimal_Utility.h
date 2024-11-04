@@ -7,43 +7,39 @@
 #include "G_MemoryManagement_Service.h"
 
 #include <string>
-#include <limits> //NOTE(ArokhSlade##2024 09 21): FUllMulN,
+#include <limits> //NOTE(ArokhSlade##2024 09 21): used for MAX_CHUNK_VAL
 #include <type_traits> //enable_if, is_integral
 #include <concepts> //unsigned_integral
 
-typedef u8 Big_Dec_Seg;
-const Big_Dec_Seg MAX_SEG_VAL = std::numeric_limits<Big_Dec_Seg>::max(); //TODO(ArokhSlade##2024 09 22): put this into Big_Decimal's namespace
-const i32 Big_Dec_Seg_Width = sizeof(Big_Dec_Seg) * 8; ////TODO(ArokhSlade##2024 09 22): put this into Big_Decimal's namespace
+typedef u64 ChunkBits;
+const ChunkBits MAX_CHUNK_VAL = std::numeric_limits<ChunkBits>::max(); //TODO(ArokhSlade##2024 09 22): put this into BigDecimal's namespace
+const i32 CHUNK_WIDTH = sizeof(ChunkBits) * 8; ////TODO(ArokhSlade##2024 09 22): put this into BigDecimal's namespace
 
 template<typename T>
-struct Big_Decimal;
+struct BigDecimal;
 
-template<typename T_Alloc>
-auto to_std_string(Big_Decimal<T_Alloc>& A) -> std::string;
-
-template <typename T_Seg_Bits_Alloc, typename T_Char_Alloc>
-auto to_chars(Big_Decimal<T_Seg_Bits_Alloc>& A, T_Char_Alloc& char_alloc) -> char *;
+template <typename T_ChunkBitsAlloc, typename T_CharAlloc>
+auto to_chars(BigDecimal<T_ChunkBitsAlloc>& A, T_CharAlloc& char_alloc) -> char *;
 
 
 /**\note  allocator needs to be given a value, everything else can be left to default initialization.
-   \brief Big_Decimal can be used to represent integers and floats.
-       \n Functions like AddFractional and FromString will return values in a float-like format.
-       \n "float-like format" means that the value .IsNormalizedFractional():
+   \brief BigDecimal can be used to represent integers and floats.
+       \n Functions like add_fractional and from_string will return values in a float-like format.
+       \n "float-like format" means that the value fulfills .is_normalized_fractional():
        \n the bit sequence starts with 1 and ends with 1 and is to be interpreted as 1.xyz...1x2^Exponent
-       \n Functions like AddIntegerSigned and the Shift functions and ParseInteger treat the bit sequence at face value
+       \n Functions like add_integer_signed and the Shift functions and parse_integer treat the bit sequence at face value
        \n i.e. as unsigned integer (the sign is stored in a separate bool)
-       \n they ignore the exponent and may return denormalized values.
+       \n they ignore the exponent and may return values with trailing zeros,
+       \n i.e. their results may not fulfill .is_normalized_fractional()
        \n values are internally represented as a linked list of unsigned integer values.
        \n the initial element of the list is stored directly in the struct, the rest is allocated dynamically.
-       \n chunks are stored in ascending order, i.e. Data.Value == least significant digits.
-       \n most significant digits are at ::GetChunk(Length-1).Value
+       \n chunks are stored in ascending order, i.e. data.value == least significant bits.
+       \n most significant bits are at ::get_chunk(length-1).value
  */
-template <typename T_Alloc = std::allocator<Big_Dec_Seg>>
-struct Big_Decimal {
+template <typename T_Alloc = std::allocator<ChunkBits>>
+struct BigDecimal {
 
-    using Seg_Bits = Big_Dec_Seg;
-
-    enum class Special_Constants{
+    enum class SpecialConstants{
         BELONGS_TO_CONTEXT
     };
 
@@ -59,40 +55,40 @@ struct Big_Decimal {
     static constexpr flags32 ZERO_EXPONENT   = 0x1 << 2;
     static constexpr flags32 ZERO_EVERYTHING = ZERO_DIGITS | ZERO_SIGN | ZERO_EXPONENT;
 
-    static Big_Decimal<T_Alloc> temp_add_fractional;
-    static Big_Decimal<T_Alloc> temp_sub_int_unsign;
-    static Big_Decimal<T_Alloc> temp_sub_frac;
-    static Big_Decimal<T_Alloc> temp_mul_int_0;
-    static Big_Decimal<T_Alloc> temp_mul_int_1;
-    static Big_Decimal<T_Alloc> temp_mul_int_carries;
-    static Big_Decimal<T_Alloc> temp_div_int_a;
-    static Big_Decimal<T_Alloc> temp_div_int_b;
-    static Big_Decimal<T_Alloc> temp_div_int_0;
-    static Big_Decimal<T_Alloc> temp_div_frac;
-    static Big_Decimal<T_Alloc> temp_div_frac_int_part;
-    static Big_Decimal<T_Alloc> temp_div_frac_frac_part;
-    static Big_Decimal<T_Alloc> temp_pow_10;
-    static Big_Decimal<T_Alloc> temp_one;
-    static Big_Decimal<T_Alloc> temp_ten;
-    static Big_Decimal<T_Alloc> temp_digit;
-    static Big_Decimal<T_Alloc> temp_to_float;
-    static Big_Decimal<T_Alloc> temp_parse_int;
-    static Big_Decimal<T_Alloc> temp_parse_frac;
-    static Big_Decimal<T_Alloc> temp_from_string;
+    static BigDecimal<T_Alloc> temp_add_fractional;
+    static BigDecimal<T_Alloc> temp_sub_int_unsign;
+    static BigDecimal<T_Alloc> temp_sub_frac;
+    static BigDecimal<T_Alloc> temp_mul_int_0;
+    static BigDecimal<T_Alloc> temp_mul_int_1;
+    static BigDecimal<T_Alloc> temp_mul_int_carries;
+    static BigDecimal<T_Alloc> temp_div_int_a;
+    static BigDecimal<T_Alloc> temp_div_int_b;
+    static BigDecimal<T_Alloc> temp_div_int_0;
+    static BigDecimal<T_Alloc> temp_div_frac;
+    static BigDecimal<T_Alloc> temp_div_frac_int_part;
+    static BigDecimal<T_Alloc> temp_div_frac_frac_part;
+    static BigDecimal<T_Alloc> temp_pow_10;
+    static BigDecimal<T_Alloc> temp_one;
+    static BigDecimal<T_Alloc> temp_ten;
+    static BigDecimal<T_Alloc> temp_digit;
+    static BigDecimal<T_Alloc> temp_to_float;
+    static BigDecimal<T_Alloc> temp_parse_int;
+    static BigDecimal<T_Alloc> temp_parse_frac;
+    static BigDecimal<T_Alloc> temp_from_string;
 
     static constexpr i32 TEMPORARIES_COUNT = 20;
 
-    static Big_Decimal<T_Alloc> *s_all_temporaries_ptrs[TEMPORARIES_COUNT];
+    static BigDecimal<T_Alloc> *s_all_temporaries_ptrs[TEMPORARIES_COUNT];
 
-    struct Seg_List;
-    using Chunk_Alloc = std::allocator_traits<T_Alloc>::template rebind_alloc<Seg_List>;
-    using Link = OneLink<Big_Decimal*>;
-    using Link_Alloc = std::allocator_traits<T_Alloc>::template rebind_alloc<Link>;
+    struct ChunkList;
+    using ChunkAlloc = std::allocator_traits<T_Alloc>::template rebind_alloc<ChunkList>;
+    using Link = OneLink<BigDecimal*>;
+    using LinkAlloc = std::allocator_traits<T_Alloc>::template rebind_alloc<Link>;
 
-    //Assigned through InitializeContext()
+    //Assigned through initialize_context()
     static T_Alloc s_ctx_alloc; //NOTE(ArokhSlade##2024 09 04): needed for FromFloat (default arg lvalue reference)
-    static Chunk_Alloc s_chunk_alloc;
-    static Link_Alloc s_link_alloc;
+    static ChunkAlloc s_chunk_alloc;
+    static LinkAlloc s_link_alloc;
 
     static Link *s_ctx_links;
 
@@ -100,141 +96,140 @@ struct Big_Decimal {
     static bool s_is_context_initialized;
 
 
-    Chunk_Alloc m_chunk_alloc;
+    ChunkAlloc m_chunk_alloc;
     bool is_alive;
     bool was_divided_by_zero=false;
 
-    using Chunk_Alloc_Traits = std::allocator_traits<Chunk_Alloc>;
+    using ChunkAllocTraits = std::allocator_traits<ChunkAlloc>;
 
-    i32 Length = 1;
+    i32 length = 1;
 
     bool IsNegative = false;
     i32 Exponent = 0;
 
     u32 m_chunks_capacity = 1;
-    struct Seg_List {
-        Seg_Bits Value;
-        Seg_List *Next,
-                 *Prev;
-    } Data = {}; //TODO(##2023 11 19): call it Chunks or ChunkList maybe? or Segments? Pieces, Parts, Spans, ...???
+    struct ChunkList {
+        ChunkBits value;
+        ChunkList *next,
+                 *prev;
+    } data = {};
     //TODO(##2024 06 15): replace chunk list with something more performant and dynamic like dynamic arrays or a container template
 
-    //TODO(##2023 11 24): Naming: `Last` is ambiguous. What if someone wants the one at index Length-1? this->Last refers to the last allocated block in the list, not the last used block in the number.
-    Seg_List *Last = &Data;
+    ChunkList *sentinel = &data;
 
-    static auto InitializeContext (const T_Alloc& ctx_alloc = T_Alloc()) -> void;
+    static auto initialize_context (const T_Alloc& ctx_alloc = T_Alloc()) -> void;
 
-    static void CloseContext(bool ignore_dangling_users=false) {
+    static void close_context(bool ignore_dangling_users=false) {
         HardAssert(ignore_dangling_users || s_ctx_count == TEMPORARIES_COUNT); //NOTE(ArokhSlade##2024 08 28):should not be called otherwise
 
         //TODO(ArokhSlade##2024 08 28): delete all context variables.
-        for (Big_Decimal *temp_variable : s_all_temporaries_ptrs) {
-            temp_variable->Release();
+        for (BigDecimal *temp_variable : s_all_temporaries_ptrs) {
+            temp_variable->release();
         }
 
         for( Link *next = nullptr, *link = s_ctx_links ; link ; link = next ) {
             next = link->next;
-            link->value->Release();
+            link->value->release();
         }
 
         s_ctx_alloc.~T_Alloc();
-        s_chunk_alloc.~Chunk_Alloc();
-        s_link_alloc.~Link_Alloc();
+        s_chunk_alloc.~ChunkAlloc();
+        s_link_alloc.~LinkAlloc();
 
         s_is_context_initialized = false;
 
         return;
     }
 
-    auto GetChunk(u32 Idx) -> Seg_List*;
+    auto get_chunk(u32 Idx) -> ChunkList*;
 
-    auto ExpandCapacity() -> Seg_List*;
-    auto ExtendLength() -> Seg_List*;
+    auto expand_capacity() -> ChunkList*;
+    auto extend_length() -> ChunkList*;
 
-    auto Normalize() -> void;
+    auto normalize() -> void;
 
-    auto CopyTo(Big_Decimal *Dst, flags32 Flags = COPY_EVERYTHING)-> void;
+    auto copy_to(BigDecimal *Dst, flags32 Flags = COPY_EVERYTHING)-> void;
 
-    static auto FromString(char *Str, Big_Decimal *Dst = nullptr) -> bool;
+    static auto from_string(char *Str, BigDecimal *Dst = nullptr) -> bool;
 
     template <std::integral T_Src=u32>
-    auto Set(T_Src Val,  bool IsNegative=false, i32 Exponent=0) -> Big_Decimal&;
+    auto set(T_Src Val,  bool IsNegative=false, i32 Exponent=0) -> BigDecimal&;
     template <std::integral T_Slot=u32>
-    auto Set(T_Slot *ValArray, u32 ValCount, bool IsNegative=false, i32 Exponent=0) -> Big_Decimal&;
+    auto set(T_Slot *ValArray, u32 ValCount, bool IsNegative=false, i32 Exponent=0) -> BigDecimal&;
 
-    auto SetFloat(real32 Val) -> void;
-    auto SetDouble(f64 Val) -> void;
+    auto set_float(real32 Val) -> void;
+    auto set_double(f64 Val) -> void;
 
-    auto LessThanIntegerSigned(Big_Decimal<T_Alloc>& B) -> bool;
-    auto LessThanIntegerUnsigned(Big_Decimal<T_Alloc>& B) ->bool;
-    auto EqualsInteger(Big_Decimal<T_Alloc> const& B) -> bool;
-    auto GreaterEqualsInteger(Big_Decimal<T_Alloc>& B) -> bool;
-    auto EqualsFractional(Big_Decimal<T_Alloc> const& B) -> bool;
-    auto EqualBits(Big_Decimal<T_Alloc> const& B) -> bool;
+    auto less_than_integer_signed(BigDecimal<T_Alloc>& B) -> bool;
+    auto less_than_integer_unsigned(BigDecimal<T_Alloc>& B) ->bool;
+    auto equals_integer(BigDecimal<T_Alloc> const& B) -> bool;
+    auto greater_equals_integer(BigDecimal<T_Alloc>& B) -> bool;
+    auto equals_fractional(BigDecimal<T_Alloc> const& B) -> bool;
+    auto equal_bits(BigDecimal<T_Alloc> const& B) -> bool;
 
 
-    auto ShiftLeft(u32 ShiftAmount) -> Big_Decimal&;
-    auto ShiftRight(u32 ShiftAmount) -> Big_Decimal&;
+    auto shift_left(u32 ShiftAmount) -> BigDecimal&;
+    auto shift_right(u32 ShiftAmount) -> BigDecimal&;
 
-    auto AddIntegerUnsigned (Big_Decimal& B) -> void;
-    auto AddIntegerSigned (Big_Decimal& B) -> void;
+    auto add_integer_unsigned (BigDecimal& B) -> void;
+    auto add_integer_signed (BigDecimal& B) -> void;
 
-    auto SubIntegerUnsignedPositive (Big_Decimal& B)-> void;
-    auto SubIntegerUnsigned (Big_Decimal& B) -> void;
-    auto SubIntegerSigned (Big_Decimal& B) -> void;
+    auto sub_integer_unsigned_positive (BigDecimal& B)-> void;
+    auto sub_integer_unsigned (BigDecimal& B) -> void;
+    auto sub_integer_signed (BigDecimal& B) -> void;
 
-    auto MulInteger(Big_Decimal& B) -> void;
-    auto DivInteger (Big_Decimal& B, u32 MinFracPrecision=32) -> void;
+    auto mul_integer(BigDecimal& B) -> void;
+    auto div_integer (BigDecimal& B, u32 MinFracPrecision=32) -> void;
 
-    auto AddFractional (Big_Decimal& B) -> void;
-    auto SubFractional (Big_Decimal& B) -> void;
-    auto MulFractional(Big_Decimal& B) -> void;
-    auto DivFractional (Big_Decimal& B, u32 MinFracPrecision=32) -> void;
+    auto add_fractional (BigDecimal& B) -> void;
+    auto sub_fractional (BigDecimal& B) -> void;
+    auto mul_fractional(BigDecimal& B) -> void;
+    auto div_fractional (BigDecimal& B, u32 MinFracPrecision=32) -> void;
 
-    auto RoundToNSignificantBits(i32 N) -> void;
+    auto round_to_n_significant_bits(i32 N) -> void;
 
     explicit operator std::string();
 
 
-    auto ToFloat () -> f32;
-    auto ToDouble () -> f64;
+    auto to_float () -> f32;
+    auto to_double () -> f64;
 
 
 
     /* Helper and Convenience Functions */
     template <typename T_Slot>
-    auto CopyBitsTo(T_Slot *bits_array, i32 slot_count) -> void;
+    auto copy_bits_to(T_Slot *bits_array, i32 slot_count) -> void;
 
 
-    auto SetBits64(u64 value) -> void;
+    auto set_bits_64(u64 value) -> void;
 
     template<typename T_Slot>
-    auto SetBitsArray(T_Slot *vals, u32 count) -> void;
+    auto set_bits_array(T_Slot *vals, u32 count) -> void;
 
-    auto IsZero() -> bool;
-    auto Neg() -> void;
-    auto Zero(flags32 what = ZERO_DIGITS_ONLY) -> void;
-    auto GetMSB() -> i32;
-    auto GetBit(i32 N) -> bool;
-    auto CountBits() -> i32;
-    auto GetLeastSignificantExponent() -> i32;
-    auto GetHead() -> Seg_List*;
-    auto TruncateTrailingZeroBits() -> void;
-    auto TruncateLeadingZeroChunks() -> void;
-    auto IsNormalizedFractional() -> bool;
-    auto IsNormalizedInteger() -> bool;
+    auto is_zero() -> bool;
+    auto neg() -> void;
+    auto zero(flags32 what = ZERO_DIGITS_ONLY) -> void;
+    auto get_msb() -> i32;
+    auto get_bit(i32 N) -> bool;
+    auto count_bits() -> i32;
+    auto get_least_significant_exponent() -> i32;
+    auto get_head() -> ChunkList*;
+    auto truncate_trailing_zero_bits() -> void;
+    auto truncate_leading_zero_chunks() -> void;
+    auto is_normalized_fractional() -> bool;
+    auto is_normalized_integer() -> bool;
     auto UpdateLength() -> void;
 
-    static auto ParseInteger(char *Src, Big_Decimal *Dst = nullptr) -> bool;
-    static bool ParseFraction(char *FracStr, Big_Decimal *Dst = nullptr);
+    static auto parse_integer(char *Src, BigDecimal *Dst = nullptr) -> bool;
+    static bool parse_fraction(char *FracStr, BigDecimal *Dst = nullptr);
 
     bool is_context_variable() {
         return m_chunk_alloc == s_chunk_alloc;
     }
 
-    void Add_context_link() {
+    void add_context_link() {
         //prepend to list
-        Link *new_link = std::allocator_traits<Link_Alloc>::allocate(s_link_alloc, 1);
+        Link *new_link = std::allocator_traits<LinkAlloc>::allocate(s_link_alloc, 1);
         new_link->next = s_ctx_links;
         new_link->value = this;
         s_ctx_links = new_link;
@@ -244,7 +239,7 @@ struct Big_Decimal {
     }
 
 
-    Link *Find_predecessor(Big_Decimal *them) {
+    Link *find_predecessor(BigDecimal *them) {
         HardAssert(them);
         HardAssert(s_ctx_links);
         if (s_ctx_links->value == them) { return nullptr; }
@@ -255,182 +250,182 @@ struct Big_Decimal {
         return predecessor;
     }
 
-    void Remove_successor_or_head(Link *them) {
+    void remove_successor_or_head(Link *them) {
         if (!them) {
             HardAssert(s_ctx_links);
             Link *new_head = s_ctx_links->next;
-            std::allocator_traits<Link_Alloc>::deallocate(s_link_alloc, s_ctx_links, sizeof(Link));
+            std::allocator_traits<LinkAlloc>::deallocate(s_link_alloc, s_ctx_links, sizeof(Link));
             s_ctx_links = new_head;
             return;
         }
 
         if (them->next) {
             Link *new_successor = them->next->next;
-            std::allocator_traits<Link_Alloc>::deallocate(s_link_alloc, them->next, sizeof(Link));
+            std::allocator_traits<LinkAlloc>::deallocate(s_link_alloc, them->next, sizeof(Link));
             them->next = new_successor;
         }
         return;
     }
 
-    void Remove_context_link() {
+    void remove_context_link() {
         HardAssert(is_context_variable());
 
         //find in list and remove
-        Link *our_preceding_link = Find_predecessor(this);
+        Link *our_preceding_link = find_predecessor(this);
         //NOTE(ArokhSlade##2024 08 29): every context variable has a link.
         HardAssert(s_ctx_links->value == this || our_preceding_link && our_preceding_link->next->value == this);
-        Remove_successor_or_head(our_preceding_link);
+        remove_successor_or_head(our_preceding_link);
 
         --s_ctx_count;
         return;
     }
 
     //TODO(ArokhSlade##2024 09 29): not needed anymore? delete
-    Chunk_Alloc& Get_chunk_alloc() {
+    ChunkAlloc& get_chunk_alloc() {
         HardAssert(s_is_context_initialized);
         return s_chunk_alloc;
     }
 
-    static T_Alloc& Get_ctx_alloc() {
+    static T_Alloc& get_ctx_alloc() {
         HardAssert(s_is_context_initialized);
         return s_ctx_alloc;
     }
 
 
     //TODO(ArokhSlade##2024 09 29): redundant? why not ambiguous? is it ever called?
-    Big_Decimal(T_Alloc& allocator)
-    : m_chunk_alloc{Chunk_Alloc{allocator}}, IsNegative{false},Data{.Value{0}},
+    BigDecimal(T_Alloc& allocator)
+    : m_chunk_alloc{ChunkAlloc{allocator}}, IsNegative{false},data{.value{0}},
       is_alive{true}
     {
         HardAssert(s_is_context_initialized);
-        if (is_context_variable()) Add_context_link();
+        if (is_context_variable()) add_context_link();
     }
 
 
     template <std::integral T_Src = u32>
-    Big_Decimal(const T_Alloc& allocator, T_Src Value_=0, bool IsNegative_=false, i32 Exponent_=0)
-    : m_chunk_alloc{Chunk_Alloc{allocator}}, IsNegative{IsNegative_},
+    BigDecimal(const T_Alloc& allocator, T_Src Value_=0, bool IsNegative_=false, i32 Exponent_=0)
+    : m_chunk_alloc{ChunkAlloc{allocator}}, IsNegative{IsNegative_},
       Exponent{Exponent_}, is_alive{true}
     {
         HardAssert(s_is_context_initialized);
-        if (is_context_variable()) Add_context_link();
-        SetBits64(Value_);
+        if (is_context_variable()) add_context_link();
+        set_bits_64(Value_);
     }
 
-    Big_Decimal(const T_Alloc& allocator, f32 Value_)
-    : Big_Decimal(allocator)
+    BigDecimal(const T_Alloc& allocator, f32 Value_)
+    : BigDecimal(allocator)
     {
-        SetFloat(Value_);
+        set_float(Value_);
     }
 
-    Big_Decimal(const T_Alloc& allocator, f64 Value_)
-    : Big_Decimal(allocator)
+    BigDecimal(const T_Alloc& allocator, f64 Value_)
+    : BigDecimal(allocator)
     {
-        SetDouble(Value_);
+        set_double(Value_);
     }
 
     template <std::integral T_Src = u32>
-    Big_Decimal(const T_Alloc& allocator, T_Src *Values, u32 Count, bool IsNegative_=false, i32 Exponent_=0)
-    : Big_Decimal{allocator, 0, IsNegative_, Exponent_}
+    BigDecimal(const T_Alloc& allocator, T_Src *Values, u32 Count, bool IsNegative_=false, i32 Exponent_=0)
+    : BigDecimal{allocator, 0, IsNegative_, Exponent_}
     {
-        SetBitsArray<T_Src>(Values, Count);
-        HardAssert(IsNormalizedInteger());
+        set_bits_array<T_Src>(Values, Count);
+        HardAssert(is_normalized_integer());
     }
 
     template <std::integral T_Src = u32>
-    Big_Decimal(T_Src Value_=0, bool IsNegative_=false, i32 Exponent_=0)
-    : Big_Decimal{Get_ctx_alloc(), Value_, IsNegative_, Exponent_}
+    BigDecimal(T_Src Value_=0, bool IsNegative_=false, i32 Exponent_=0)
+    : BigDecimal{get_ctx_alloc(), Value_, IsNegative_, Exponent_}
     {}
 
-    Big_Decimal(f32 Value_)
-    : Big_Decimal{Get_ctx_alloc(), Value_}
+    BigDecimal(f32 Value_)
+    : BigDecimal{get_ctx_alloc(), Value_}
     {}
 
-    Big_Decimal(f64 Value_)
-    : Big_Decimal{Get_ctx_alloc(), Value_}
+    BigDecimal(f64 Value_)
+    : BigDecimal{get_ctx_alloc(), Value_}
     {}
 
     template<std::integral T_Src=u32>
-    Big_Decimal(T_Src *Values, u32 ValuesCount, bool IsNegative_=false, i32 Exponent_=0)
-    : Big_Decimal{Get_ctx_alloc(),Values, ValuesCount, IsNegative_, Exponent_}
+    BigDecimal(T_Src *Values, u32 ValuesCount, bool IsNegative_=false, i32 Exponent_=0)
+    : BigDecimal{get_ctx_alloc(),Values, ValuesCount, IsNegative_, Exponent_}
     {}
 
 
 
-    Big_Decimal(T_Alloc& allocator, Big_Decimal& Other)
-    : m_chunk_alloc{Chunk_Alloc{allocator}}, IsNegative{Other.IsNegative},
+    BigDecimal(T_Alloc& allocator, BigDecimal& Other)
+    : m_chunk_alloc{ChunkAlloc{allocator}}, IsNegative{Other.IsNegative},
       Exponent{Other.Exponent}, is_alive{true}
     {
         HardAssert(s_is_context_initialized);
-        Other.CopyTo(this, COPY_DIGITS);
-        if (is_context_variable()) Add_context_link();
+        Other.copy_to(this, COPY_DIGITS);
+        if (is_context_variable()) add_context_link();
     }
 
 
 
-    Big_Decimal(Big_Decimal& other)
+    BigDecimal(BigDecimal& other)
     : m_chunk_alloc{other.m_chunk_alloc}, is_alive{other.is_alive}
     {
         HardAssert(is_alive);
-        other.CopyTo(this, COPY_EVERYTHING);
-        Add_context_link();
+        other.copy_to(this, COPY_EVERYTHING);
+        add_context_link();
     }
-    Big_Decimal(const Big_Decimal& other) = delete;
+    BigDecimal(const BigDecimal& other) = delete;
 
-    void Release() {
+    void release() {
         HardAssert(is_alive);
         is_alive = false;
 
         //delete all chunks through allocator
-        Seg_List *chunk = Last;
-        Seg_List *prev;
+        ChunkList *chunk = sentinel;
+        ChunkList *prev;
         i32 CountDeleted = 0;
         i32 old_capacity = m_chunks_capacity;
 
-        HardAssert(Last->Next == nullptr);
-        HardAssert(Data.Prev == nullptr);
+        HardAssert(sentinel->next == nullptr);
+        HardAssert(data.prev == nullptr);
 
-        while (chunk != &Data) {
+        while (chunk != &data) {
             HardAssert(chunk);
-            prev = chunk->Prev;
-            std::allocator_traits<Chunk_Alloc>::deallocate(m_chunk_alloc, chunk, sizeof(Seg_List));
+            prev = chunk->prev;
+            std::allocator_traits<ChunkAlloc>::deallocate(m_chunk_alloc, chunk, sizeof(ChunkList));
             chunk = prev;
-            chunk->Next = nullptr;
+            chunk->next = nullptr;
             --m_chunks_capacity;
             ++CountDeleted;
         }
 
         HardAssert(CountDeleted+1 == old_capacity);
         HardAssert(m_chunks_capacity == 1);
-        HardAssert(Data.Next == nullptr);
-        this->Zero(ZERO_EVERYTHING);
+        HardAssert(data.next == nullptr);
+        this->zero(ZERO_EVERYTHING);
 
-        Length = 1;
-        Last = &Data;
+        length = 1;
+        sentinel = &data;
 
         if (is_context_variable()) {
-            Remove_context_link();
+            remove_context_link();
         }
 
-        m_chunk_alloc.~Chunk_Alloc();
+        m_chunk_alloc.~ChunkAlloc();
 
         return;
     }
 
-    ~Big_Decimal() {
+    ~BigDecimal() {
         if (!is_alive) return;
 
-        Release();
+        release();
     }
 
     /* issues:
      - shallow or deep copy?
-     - internal pointers (Last)
+     - internal pointers (sentinel)
      - other with other allocator
      - other with other allocator type
      - copy other's allocator or only their values with our current allocator?
     */
-    Big_Decimal& operator=(const Big_Decimal& other){
+    BigDecimal& operator=(const BigDecimal& other){
         return *this;
     }
 
@@ -439,54 +434,54 @@ struct Big_Decimal {
     //NOTE(ArokhSlade##2024 08 28): this is more or less a work-around
     //because some constructor WILL be called at start-up for statics, which I don't actually want
     //so call this special constructor that does nothing
-    //then later, when InitializeContext() is called,
+    //then later, when initialize_context() is called,
     //these variables get re-assigned, setting their allocator and incrementing the context variables counter
-    Big_Decimal(Special_Constants must_belong_to_context, u32 Value=0,
+    BigDecimal(SpecialConstants must_belong_to_context, u32 value=0,
                bool IsNegative_=false, i32 Exponent_=0)
-    : m_chunk_alloc{}, Data{.Value{Value}},
+    : m_chunk_alloc{}, data{.value{value}},
       IsNegative{IsNegative_}, Exponent{Exponent_},
       is_alive{false} //NOTE()ArokhSlade##2024 08 29):allocator for static temporaries not known at startup
     {
-        HardAssert(must_belong_to_context == Special_Constants::BELONGS_TO_CONTEXT);
+        HardAssert(must_belong_to_context == SpecialConstants::BELONGS_TO_CONTEXT);
     }
 
-    Big_Decimal(Special_Constants must_belong_to_context, Chunk_Alloc& chunk_alloc, u32 Value=0,
+    BigDecimal(SpecialConstants must_belong_to_context, ChunkAlloc& chunk_alloc, u32 value=0,
                bool IsNegative_=false, i32 Exponent_=0)
-    : m_chunk_alloc{chunk_alloc}, Data{.Value{Value}},
+    : m_chunk_alloc{chunk_alloc}, data{.value{value}},
       IsNegative{IsNegative_}, Exponent{Exponent_},
       is_alive{true} //NOTE(ArokhSlade##2024 08 29): allocator for static temporaries not known at startup
     {
-        HardAssert(must_belong_to_context == Special_Constants::BELONGS_TO_CONTEXT);
-        Add_context_link();
+        HardAssert(must_belong_to_context == SpecialConstants::BELONGS_TO_CONTEXT);
+        add_context_link();
     }
 
-    void Initialize(Chunk_Alloc& chunk_alloc) {
+    void initialize(ChunkAlloc& chunk_alloc) {
         m_chunk_alloc = chunk_alloc;
         is_alive = true;
-        Add_context_link();
+        add_context_link();
     }
 };
 
 
 template <typename T_Alloc>
-auto Str(Big_Decimal<T_Alloc>& A, memory_arena *TempArena) -> char* {
+auto Str(BigDecimal<T_Alloc>& A, memory_arena *TempArena) -> char* {
 
     char Sign = A.IsNegative ? '-' : '+';
-    typename Big_Decimal<T_Alloc>::Seg_List *CurChunk = A.GetHead();
-    i32 UnusedChunks = A.m_chunks_capacity - A.Length;
+    typename BigDecimal<T_Alloc>::ChunkList *CurChunk = A.get_head();
+    i32 UnusedChunks = A.m_chunks_capacity - A.length;
     char HexDigits[11] = "";
 
     i32 NumSize = UnusedChunks > 0 ? Log10I(UnusedChunks ) : 1;
     i32 UnusedChunksFieldSize = 2 + NumSize + 1;
 
-    i32 BufSize = 1+A.Length*9+2+UnusedChunksFieldSize+1;
+    i32 BufSize = 1+A.length*9+2+UnusedChunksFieldSize+1;
     char *Buf = PushArray(TempArena, BufSize, char);
 
     char *BufPos=Buf;
     *BufPos++ = Sign;
 
-    for (i32 Idx = 0 ; Idx < A.Length; ++Idx, CurChunk = CurChunk->Prev) {
-        stbsp_sprintf(BufPos, "%.8x ", CurChunk->Value);
+    for (i32 Idx = 0 ; Idx < A.length; ++Idx, CurChunk = CurChunk->prev) {
+        stbsp_sprintf(BufPos, "%.8x ", CurChunk->value);
         BufPos +=9;
     }
 
@@ -502,11 +497,11 @@ auto Str(Big_Decimal<T_Alloc>& A, memory_arena *TempArena) -> char* {
 
 
 template <typename T_Alloc>
-auto Big_Decimal<T_Alloc>::ParseInteger(char *Src, Big_Decimal *Dst) -> bool {
+auto BigDecimal<T_Alloc>::parse_integer(char *Src, BigDecimal *Dst) -> bool {
 
-    if (!Dst) Dst = &Big_Decimal<T_Alloc>::temp_parse_int;
+    if (!Dst) Dst = &BigDecimal<T_Alloc>::temp_parse_int;
 
-    Dst->Zero(ZERO_EVERYTHING);
+    Dst->zero(ZERO_EVERYTHING);
 
     if (Src == nullptr || !IsNum(*Src)) return false;
 
@@ -516,41 +511,41 @@ auto Big_Decimal<T_Alloc>::ParseInteger(char *Src, Big_Decimal *Dst) -> bool {
         ++LastDigit;
     }
 
-    Big_Decimal<T_Alloc>& Digit_ = Big_Decimal<T_Alloc>::temp_digit;
-    Big_Decimal<T_Alloc>& Pow10_ = Big_Decimal<T_Alloc>::temp_pow_10;
-    Big_Decimal<T_Alloc>& Ten_ = Big_Decimal<T_Alloc>::temp_ten;
+    BigDecimal<T_Alloc>& Digit_ = BigDecimal<T_Alloc>::temp_digit;
+    BigDecimal<T_Alloc>& Pow10_ = BigDecimal<T_Alloc>::temp_pow_10;
+    BigDecimal<T_Alloc>& Ten_ = BigDecimal<T_Alloc>::temp_ten;
 
-    Pow10_.Set(1);
-    Ten_.Set(10);
+    Pow10_.set(1);
+    Ten_.set(10);
 
     auto ToDigit = [](char c){return static_cast<int>(c-'0');};
 
     for (char *DigitP = LastDigit ; DigitP >= Src ; --DigitP) {
         int D = ToDigit(*DigitP);
-        Digit_.Set(D);
-        Digit_.MulInteger(Pow10_);
-        Dst->AddIntegerSigned(Digit_);
-        Pow10_.MulInteger(Ten_);
+        Digit_.set(D);
+        Digit_.mul_integer(Pow10_);
+        Dst->add_integer_signed(Digit_);
+        Pow10_.mul_integer(Ten_);
     }
 
-    Dst->Exponent = Dst->GetMSB();
+    Dst->Exponent = Dst->get_msb();
 
     return true;
 }
 
 
 template <typename T_Alloc>
-auto Big_Decimal<T_Alloc>::ParseFraction(char *FracStr, Big_Decimal<T_Alloc> *Dst) -> bool{
+auto BigDecimal<T_Alloc>::parse_fraction(char *FracStr, BigDecimal<T_Alloc> *Dst) -> bool{
 
     HardAssert(!!FracStr);
 
-    if (!Dst) Dst = &Big_Decimal<T_Alloc>::temp_parse_frac;
+    if (!Dst) Dst = &BigDecimal<T_Alloc>::temp_parse_frac;
 
-    Dst->Zero(ZERO_EVERYTHING);
+    Dst->zero(ZERO_EVERYTHING);
 
-    Big_Decimal<T_Alloc>& digit = Big_Decimal<T_Alloc>::temp_digit;
-    Big_Decimal<T_Alloc>& pow10 = Big_Decimal<T_Alloc>::temp_pow_10;
-    Big_Decimal<T_Alloc>& ten = Big_Decimal<T_Alloc>::temp_ten;
+    BigDecimal<T_Alloc>& digit = BigDecimal<T_Alloc>::temp_digit;
+    BigDecimal<T_Alloc>& pow10 = BigDecimal<T_Alloc>::temp_pow_10;
+    BigDecimal<T_Alloc>& ten = BigDecimal<T_Alloc>::temp_ten;
 
     i32 StrLen = 0;
     for (char *Cur=FracStr; IsNum(*Cur) ; ++Cur) {
@@ -558,33 +553,33 @@ auto Big_Decimal<T_Alloc>::ParseFraction(char *FracStr, Big_Decimal<T_Alloc> *Ds
     }
     if (StrLen == 0) return false;
 
-    pow10.Set(1,0,0);
-    ten.Set(10,0,Log2I(10));
-    ten.Normalize();
-    digit.Zero(ZERO_EVERYTHING);
+    pow10.set(1,0,0);
+    ten.set(10,0,Log2I(10));
+    ten.normalize();
+    digit.zero(ZERO_EVERYTHING);
 
     for (int32 i = 0 ; i < StrLen ; ++i) {
-        pow10.DivFractional(ten,128);
+        pow10.div_fractional(ten,128);
 
         int32 Digit = static_cast<i32>(FracStr[i]-'0');
         int32 DigitExp = Digit == 0 ? 0 : Log2I(Digit);
-        digit.Set(Digit,false,DigitExp);
-        digit.Normalize();
+        digit.set(Digit,false,DigitExp);
+        digit.normalize();
 
-        digit.MulFractional(pow10);
+        digit.mul_fractional(pow10);
 
-        Dst->AddFractional(digit);
+        Dst->add_fractional(digit);
     }
 
-    HardAssert(Dst->IsNormalizedFractional());
+    HardAssert(Dst->is_normalized_fractional());
 
     return true;
 }
 
 
 template <typename T_Alloc>
-auto Big_Decimal<T_Alloc>::FromString(char *DecStr, Big_Decimal<T_Alloc> *Dst) -> bool {
-    using BigDec = Big_Decimal<T_Alloc>;
+auto BigDecimal<T_Alloc>::from_string(char *DecStr, BigDecimal<T_Alloc> *Dst) -> bool {
+    using BigDec = BigDecimal<T_Alloc>;
 
     if (DecStr == nullptr) return false;
 
@@ -612,102 +607,102 @@ auto Big_Decimal<T_Alloc>::FromString(char *DecStr, Big_Decimal<T_Alloc> *Dst) -
         }
     }
 
-    if (!ParseInteger(DecStr, Dst)) return false;
-    Dst->Normalize();
+    if (!parse_integer(DecStr, Dst)) return false;
+    Dst->normalize();
 
     if (FoundPoint) {
         char *FractionStart = DecStr+PointPos+1;
         BigDec *Frac = &temp_parse_frac;
-        if (!ParseFraction(DecStr+PointPos+1, Frac)) return false;
-        Dst->AddFractional(*Frac);
+        if (!parse_fraction(DecStr+PointPos+1, Frac)) return false;
+        Dst->add_fractional(*Frac);
     }
 
     Dst->IsNegative = Neg;
 
-    HardAssert(Dst->IsNormalizedFractional());
+    HardAssert(Dst->is_normalized_fractional());
 
     return bool(Dst);
 }
 
 
 /**
- *  \brief  A.Length == 1 && A.Data.Value == 0x0
+ *  \brief  A.length == 1 && A.data.value == 0x0
  *  \n      Exponent does not matter. 0^0 is still zero
 **/
 template <typename T_Alloc>
-auto Big_Decimal<T_Alloc>::IsZero() -> bool {
-    return Length == 1 && Data.Value == 0x0;
+auto BigDecimal<T_Alloc>::is_zero() -> bool {
+    return length == 1 && data.value == 0x0;
 }
 
 //TODO(ArokhSlade##2024 08 27): why does this not work?
 //template <typename T_Alloc>
-//using is_ctx_var = Big_Decimal<T_Alloc>::BELONGS_TO_CONTEXT;
+//using is_ctx_var = BigDecimal<T_Alloc>::BELONGS_TO_CONTEXT;
 
 //template <typename T_Alloc>
-//constexpr auto is_ctx_var = Big_Decimal<T_Alloc>::BELONGS_TO_CONTEXT;
+//constexpr auto is_ctx_var = BigDecimal<T_Alloc>::BELONGS_TO_CONTEXT;
 
 template <typename T_Alloc>
-Big_Decimal<T_Alloc> Big_Decimal<T_Alloc>::temp_add_fractional {Big_Decimal<T_Alloc>::Special_Constants::BELONGS_TO_CONTEXT};
+BigDecimal<T_Alloc> BigDecimal<T_Alloc>::temp_add_fractional {BigDecimal<T_Alloc>::SpecialConstants::BELONGS_TO_CONTEXT};
 
 template <typename T_Alloc>
-Big_Decimal<T_Alloc> Big_Decimal<T_Alloc>::temp_sub_int_unsign {Big_Decimal<T_Alloc>::Special_Constants::BELONGS_TO_CONTEXT};
+BigDecimal<T_Alloc> BigDecimal<T_Alloc>::temp_sub_int_unsign {BigDecimal<T_Alloc>::SpecialConstants::BELONGS_TO_CONTEXT};
 
 template <typename T_Alloc>
-Big_Decimal<T_Alloc> Big_Decimal<T_Alloc>::temp_sub_frac{Big_Decimal<T_Alloc>::Special_Constants::BELONGS_TO_CONTEXT};
+BigDecimal<T_Alloc> BigDecimal<T_Alloc>::temp_sub_frac{BigDecimal<T_Alloc>::SpecialConstants::BELONGS_TO_CONTEXT};
 
 template <typename T_Alloc>
-Big_Decimal<T_Alloc> Big_Decimal<T_Alloc>::temp_mul_int_0 {Big_Decimal<T_Alloc>::Special_Constants::BELONGS_TO_CONTEXT};
+BigDecimal<T_Alloc> BigDecimal<T_Alloc>::temp_mul_int_0 {BigDecimal<T_Alloc>::SpecialConstants::BELONGS_TO_CONTEXT};
 
 template <typename T_Alloc>
-Big_Decimal<T_Alloc> Big_Decimal<T_Alloc>::temp_mul_int_1 {Big_Decimal<T_Alloc>::Special_Constants::BELONGS_TO_CONTEXT};
+BigDecimal<T_Alloc> BigDecimal<T_Alloc>::temp_mul_int_1 {BigDecimal<T_Alloc>::SpecialConstants::BELONGS_TO_CONTEXT};
 
 template <typename T_Alloc>
-Big_Decimal<T_Alloc> Big_Decimal<T_Alloc>::temp_mul_int_carries {Big_Decimal<T_Alloc>::Special_Constants::BELONGS_TO_CONTEXT};
+BigDecimal<T_Alloc> BigDecimal<T_Alloc>::temp_mul_int_carries {BigDecimal<T_Alloc>::SpecialConstants::BELONGS_TO_CONTEXT};
 
 template <typename T_Alloc>
-Big_Decimal<T_Alloc> Big_Decimal<T_Alloc>::temp_one {Big_Decimal<T_Alloc>::Special_Constants::BELONGS_TO_CONTEXT};
+BigDecimal<T_Alloc> BigDecimal<T_Alloc>::temp_one {BigDecimal<T_Alloc>::SpecialConstants::BELONGS_TO_CONTEXT};
 
 template <typename T_Alloc>
-Big_Decimal<T_Alloc> Big_Decimal<T_Alloc>::temp_div_int_a{Big_Decimal<T_Alloc>::Special_Constants::BELONGS_TO_CONTEXT};
+BigDecimal<T_Alloc> BigDecimal<T_Alloc>::temp_div_int_a{BigDecimal<T_Alloc>::SpecialConstants::BELONGS_TO_CONTEXT};
 
 template <typename T_Alloc>
-Big_Decimal<T_Alloc> Big_Decimal<T_Alloc>::temp_div_int_b{Big_Decimal<T_Alloc>::Special_Constants::BELONGS_TO_CONTEXT};
+BigDecimal<T_Alloc> BigDecimal<T_Alloc>::temp_div_int_b{BigDecimal<T_Alloc>::SpecialConstants::BELONGS_TO_CONTEXT};
 
 template <typename T_Alloc>
-Big_Decimal<T_Alloc> Big_Decimal<T_Alloc>::temp_div_int_0{Big_Decimal<T_Alloc>::Special_Constants::BELONGS_TO_CONTEXT};
+BigDecimal<T_Alloc> BigDecimal<T_Alloc>::temp_div_int_0{BigDecimal<T_Alloc>::SpecialConstants::BELONGS_TO_CONTEXT};
 
 template <typename T_Alloc>
-Big_Decimal<T_Alloc> Big_Decimal<T_Alloc>::temp_div_frac{Big_Decimal<T_Alloc>::Special_Constants::BELONGS_TO_CONTEXT};
+BigDecimal<T_Alloc> BigDecimal<T_Alloc>::temp_div_frac{BigDecimal<T_Alloc>::SpecialConstants::BELONGS_TO_CONTEXT};
 
 template <typename T_Alloc>
-Big_Decimal<T_Alloc> Big_Decimal<T_Alloc>::temp_div_frac_int_part{Big_Decimal<T_Alloc>::Special_Constants::BELONGS_TO_CONTEXT};
+BigDecimal<T_Alloc> BigDecimal<T_Alloc>::temp_div_frac_int_part{BigDecimal<T_Alloc>::SpecialConstants::BELONGS_TO_CONTEXT};
 
 template <typename T_Alloc>
-Big_Decimal<T_Alloc> Big_Decimal<T_Alloc>::temp_div_frac_frac_part{Big_Decimal<T_Alloc>::Special_Constants::BELONGS_TO_CONTEXT};
+BigDecimal<T_Alloc> BigDecimal<T_Alloc>::temp_div_frac_frac_part{BigDecimal<T_Alloc>::SpecialConstants::BELONGS_TO_CONTEXT};
 
 template <typename T_Alloc>
-Big_Decimal<T_Alloc> Big_Decimal<T_Alloc>::temp_pow_10{Big_Decimal<T_Alloc>::Special_Constants::BELONGS_TO_CONTEXT};
+BigDecimal<T_Alloc> BigDecimal<T_Alloc>::temp_pow_10{BigDecimal<T_Alloc>::SpecialConstants::BELONGS_TO_CONTEXT};
 
 template <typename T_Alloc>
-Big_Decimal<T_Alloc> Big_Decimal<T_Alloc>::temp_ten{Big_Decimal<T_Alloc>::Special_Constants::BELONGS_TO_CONTEXT};
+BigDecimal<T_Alloc> BigDecimal<T_Alloc>::temp_ten{BigDecimal<T_Alloc>::SpecialConstants::BELONGS_TO_CONTEXT};
 
 template <typename T_Alloc>
-Big_Decimal<T_Alloc> Big_Decimal<T_Alloc>::temp_digit{Big_Decimal<T_Alloc>::Special_Constants::BELONGS_TO_CONTEXT};
+BigDecimal<T_Alloc> BigDecimal<T_Alloc>::temp_digit{BigDecimal<T_Alloc>::SpecialConstants::BELONGS_TO_CONTEXT};
 
 template <typename T_Alloc>
-Big_Decimal<T_Alloc> Big_Decimal<T_Alloc>::temp_to_float{Big_Decimal<T_Alloc>::Special_Constants::BELONGS_TO_CONTEXT};
+BigDecimal<T_Alloc> BigDecimal<T_Alloc>::temp_to_float{BigDecimal<T_Alloc>::SpecialConstants::BELONGS_TO_CONTEXT};
 
 template <typename T_Alloc>
-Big_Decimal<T_Alloc> Big_Decimal<T_Alloc>::temp_parse_int{Big_Decimal<T_Alloc>::Special_Constants::BELONGS_TO_CONTEXT};
+BigDecimal<T_Alloc> BigDecimal<T_Alloc>::temp_parse_int{BigDecimal<T_Alloc>::SpecialConstants::BELONGS_TO_CONTEXT};
 
 template <typename T_Alloc>
-Big_Decimal<T_Alloc> Big_Decimal<T_Alloc>::temp_parse_frac{Big_Decimal<T_Alloc>::Special_Constants::BELONGS_TO_CONTEXT};
+BigDecimal<T_Alloc> BigDecimal<T_Alloc>::temp_parse_frac{BigDecimal<T_Alloc>::SpecialConstants::BELONGS_TO_CONTEXT};
 
 template <typename T_Alloc>
-Big_Decimal<T_Alloc> Big_Decimal<T_Alloc>::temp_from_string{Big_Decimal<T_Alloc>::Special_Constants::BELONGS_TO_CONTEXT};
+BigDecimal<T_Alloc> BigDecimal<T_Alloc>::temp_from_string{BigDecimal<T_Alloc>::SpecialConstants::BELONGS_TO_CONTEXT};
 
 template <typename T_Alloc>
-Big_Decimal<T_Alloc> *Big_Decimal<T_Alloc>::s_all_temporaries_ptrs[TEMPORARIES_COUNT] = {
+BigDecimal<T_Alloc> *BigDecimal<T_Alloc>::s_all_temporaries_ptrs[TEMPORARIES_COUNT] = {
         &temp_add_fractional, &temp_sub_int_unsign, &temp_sub_frac, &temp_mul_int_0, &temp_mul_int_1,
         &temp_mul_int_carries, &temp_div_int_a, &temp_div_int_b, &temp_div_int_0, &temp_div_frac,
         &temp_div_frac_int_part, &temp_div_frac_frac_part, &temp_pow_10, &temp_one, &temp_ten,
@@ -716,78 +711,78 @@ Big_Decimal<T_Alloc> *Big_Decimal<T_Alloc>::s_all_temporaries_ptrs[TEMPORARIES_C
 
 
 template <typename T_Alloc>
-bool Big_Decimal<T_Alloc>::s_is_context_initialized {false};
+bool BigDecimal<T_Alloc>::s_is_context_initialized {false};
 
 template <typename T_Alloc>
-i32 Big_Decimal<T_Alloc>::s_ctx_count{0};
+i32 BigDecimal<T_Alloc>::s_ctx_count{0};
 
 template <typename T_Alloc>
-T_Alloc Big_Decimal<T_Alloc>::s_ctx_alloc{};
+T_Alloc BigDecimal<T_Alloc>::s_ctx_alloc{};
 
 template <typename T_Alloc>
-Big_Decimal<T_Alloc>::Chunk_Alloc Big_Decimal<T_Alloc>::s_chunk_alloc{};
+BigDecimal<T_Alloc>::ChunkAlloc BigDecimal<T_Alloc>::s_chunk_alloc{};
 
 template <typename T_Alloc>
-Big_Decimal<T_Alloc>::Link_Alloc Big_Decimal<T_Alloc>::s_link_alloc{Big_Decimal<T_Alloc>::s_chunk_alloc};
+BigDecimal<T_Alloc>::LinkAlloc BigDecimal<T_Alloc>::s_link_alloc{BigDecimal<T_Alloc>::s_chunk_alloc};
 
 template <typename T_Alloc>
-Big_Decimal<T_Alloc>::Link *Big_Decimal<T_Alloc>::s_ctx_links = nullptr;
+BigDecimal<T_Alloc>::Link *BigDecimal<T_Alloc>::s_ctx_links = nullptr;
 
 
 
 
 /**
  * \note will return nullptr if given index exceeds capacity
- * \note may return a chunk beyond `Length`, i.e. that's currently not in use,
+ * \note may return a chunk beyond `length`, i.e. that's currently not in use,
  * i.e. that currently doesn't contain a part of the number's current value
  */
 template <typename T_Alloc>
-auto Big_Decimal<T_Alloc>::GetChunk(u32 Idx) -> Seg_List * {
-    Seg_List *Result = nullptr;
+auto BigDecimal<T_Alloc>::get_chunk(u32 Idx) -> ChunkList * {
+    ChunkList *Result = nullptr;
     if (Idx < m_chunks_capacity) {
-        Result = &Data;
+        Result = &data;
         while (Idx-- > 0) {
-            Result = Result ->Next;
+            Result = Result ->next;
         }
     }
     return Result;
 }
 
 template <typename T_Alloc>
-auto Big_Decimal<T_Alloc>::GetHead() -> Seg_List* {
-    return GetChunk(Length-1);
+auto BigDecimal<T_Alloc>::get_head() -> ChunkList* {
+    return get_chunk(length-1);
 }
 
 /**
  * \brief Allocates another chunk
  */
 template <typename T_Alloc>
-//TODO(## 2023 11 23): support List nodes that are multiple segments long?
-auto Big_Decimal<T_Alloc>::ExpandCapacity() -> Seg_List* {
-    Seg_List *NewChunk = (Seg_List*)Chunk_Alloc_Traits::allocate(m_chunk_alloc, 1);
+//TODO(## 2023 11 23): support List nodes that are multiple chunks long?
+auto BigDecimal<T_Alloc>::expand_capacity() -> ChunkList* {
+    ChunkList *NewChunk = (ChunkList*)ChunkAllocTraits::allocate(m_chunk_alloc, 1);
     HardAssert(NewChunk != nullptr);
-    *NewChunk = {.Value = 0, .Next = nullptr, .Prev = nullptr};
-    Last->Next = NewChunk;
-    NewChunk->Prev = Last;
-    Last = NewChunk;
+    *NewChunk = {.value = 0, .next = nullptr, .prev = nullptr};
+    sentinel->next = NewChunk;
+    NewChunk->prev = sentinel;
+    sentinel = NewChunk;
     ++m_chunks_capacity;
 
     return NewChunk;
 }
 
 /**
- * \brief increase length, allocate when appropriate, return pointer to Last chunk (index == Length-1) in list.
+ * \brief increase length, allocate when appropriate, return pointer to last chunk (index == length-1) in list.
  *     \n NOTE: Sets the new chunk's value to Zero.
  */
 template <typename T_Alloc>
-auto Big_Decimal<T_Alloc>::ExtendLength() -> Seg_List* {
-    HardAssert(Length <= m_chunks_capacity);
-    ++Length;
-    Seg_List *Result = GetHead();
+auto BigDecimal<T_Alloc>::extend_length() -> ChunkList* {
+    HardAssert(length <= m_chunks_capacity);
+    ++length;
+    ChunkList *Result = get_head();
     if (Result == nullptr) {
-        Result = ExpandCapacity();
+        Result = expand_capacity();
     }
-    Result->Value = 0;
+    Result->value = 0;
 
     return Result;
 }
@@ -797,125 +792,125 @@ auto Big_Decimal<T_Alloc>::ExtendLength() -> Seg_List* {
  */
 template <typename T_Alloc>
 //TODO(## 2023 11 18) : test case where allocator returns nullptr
-auto Big_Decimal<T_Alloc>::AddIntegerUnsigned (Big_Decimal& B) -> void {
+auto BigDecimal<T_Alloc>::add_integer_unsigned (BigDecimal& B) -> void {
 
-    HardAssert(this->IsNormalizedInteger());
+    HardAssert(this->is_normalized_integer());
 
-    Big_Decimal& A = *this;
+    BigDecimal& A = *this;
 
     A.UpdateLength();
     B.UpdateLength();
 
 
-    u32 LongerLength =  A.Length >= B.Length ? A.Length : B.Length;
-    u32 ShorterLength =  A.Length <= B.Length ? A.Length : B.Length;
-    Seg_List *SegA = &A.Data, *SegB = &B.Data;
+    u32 LongerLength =  A.length >= B.length ? A.length : B.length;
+    u32 ShorterLength =  A.length <= B.length ? A.length : B.length;
+    ChunkList *ChunkA = &A.data, *ChunkB = &B.data;
 
-    Big_Dec_Seg OldCarry = 0;
-    //TODO(##2023 11 23): if (A.Length < B.Length) {/*allocate and append B.Length-A.Length segments}
+    ChunkBits OldCarry = 0;
+    //TODO(##2023 11 23): if (A.length < B.length) {/*allocate and append B.length-A.length chunks}
     for ( u32 Idx = 0
         ; Idx < LongerLength
         ; ++Idx,
-          SegA = SegA ? SegA->Next : nullptr,
-          SegB = SegB ? SegB->Next : nullptr ) {
+          ChunkA = ChunkA ? ChunkA->next : nullptr,
+          ChunkB = ChunkB ? ChunkB->next : nullptr ) {
 
-        if ( Idx >= A.Length)  {
-            SegA = A.ExtendLength();
+        if ( Idx >= A.length)  {
+            ChunkA = A.extend_length();
         }
 
-        Big_Dec_Seg SegBValue = Idx < B.Length ? SegB->Value : 0U;
-        bool NewCarry = MAX_SEG_VAL - SegBValue - OldCarry < SegA->Value;
-        SegA->Value += SegBValue + OldCarry; //wrap-around is fine
+        ChunkBits ChunkBValue = Idx < B.length ? ChunkB->value : 0U;
+        bool NewCarry = MAX_CHUNK_VAL - ChunkBValue - OldCarry < ChunkA->value;
+        ChunkA->value += ChunkBValue + OldCarry; //wrap-around is fine
         OldCarry = NewCarry;
     }
 
     if (OldCarry) {
-        SegA = ExtendLength();
-        SegA->Value = OldCarry;
+        ChunkA = extend_length();
+        ChunkA->value = OldCarry;
     }
 
     return;
 
-    HardAssert(this->IsNormalizedInteger());
+    HardAssert(this->is_normalized_integer());
 }
 
 template <typename T_Alloc>
 //TODO(## 2023 11 18) : test case where allocator returns nullptr
-auto Big_Decimal<T_Alloc>::AddIntegerSigned (Big_Decimal& B) -> void {
+auto BigDecimal<T_Alloc>::add_integer_signed (BigDecimal& B) -> void {
 
-    HardAssert(this->IsNormalizedInteger());
+    HardAssert(this->is_normalized_integer());
 
-    Big_Decimal& A = *this;
+    BigDecimal& A = *this;
     if (A.IsNegative == B.IsNegative) {
-        AddIntegerUnsigned(B);
+        add_integer_unsigned(B);
     } else if (A.IsNegative) {
-        A.Neg();
-        A.SubIntegerSigned(B);
-        A.Neg();
+        A.neg();
+        A.sub_integer_signed(B);
+        A.neg();
     } else { /* (B.IsNegative) */
-        B.Neg();
-        A.SubIntegerSigned(B);
-        B.Neg();
+        B.neg();
+        A.sub_integer_signed(B);
+        B.neg();
     }
 
-    HardAssert(this->IsNormalizedInteger());
+    HardAssert(this->is_normalized_integer());
 
     return ;
 }
 
 template <typename T_Alloc>
-auto Big_Decimal<T_Alloc>::TruncateTrailingZeroBits() -> void {
-    if (this->IsZero()) { Length = 1; return; }
+auto BigDecimal<T_Alloc>::truncate_trailing_zero_bits() -> void {
+    if (this->is_zero()) { length = 1; return; }
     i32 TruncCount = 0;
     i32 FirstOne = 0;
     bool BitFound = false;
-    Seg_List *Current = &this->Data;
-    for (i32 Block = 0 ; Block < Length; ++Block, Current = Current -> Next) {
-        FirstOne = BitScan<Big_Dec_Seg>(Current->Value);
+    ChunkList *Current = &this->data;
+    for (i32 Block = 0 ; Block < length; ++Block, Current = Current -> next) {
+        FirstOne = BitScan<ChunkBits>(Current->value);
         if (FirstOne != BIT_SCAN_NO_HIT) {
             TruncCount += FirstOne;
             BitFound = true;
             break;
         }
-        TruncCount += Big_Dec_Seg_Width;
+        TruncCount += CHUNK_WIDTH;
     }
-    ShiftRight(TruncCount);
+    shift_right(TruncCount);
     return;
 }
 
 
 template <typename T_Alloc>
-auto Big_Decimal<T_Alloc>::TruncateLeadingZeroChunks() -> void {
-    for (Seg_List *Cur{ GetHead() } ; Cur != &Data ; Cur = Cur->Prev )
+auto BigDecimal<T_Alloc>::truncate_leading_zero_chunks() -> void {
+    for (ChunkList *Cur{ get_head() } ; Cur != &data ; Cur = Cur->prev )
     {
-        if (Cur->Value == 0x0) --Length;
+        if (Cur->value == 0x0) --length;
         else break;
     };
-    HardAssert (Length >= 1);
+    HardAssert (length >= 1);
 }
 
 /** \brief Gets rid of leading zero chunks and trailing zeros, exponent doesn't change, e.g. 10100 E=2 becomes 101 E=2, NOT 101 E=4.
  *  \n that's because the bits are interpreted as 1.0100E2
  **/
 template <typename T_Alloc>
-auto Big_Decimal<T_Alloc>::Normalize() -> void {
-    TruncateLeadingZeroChunks();
-    TruncateTrailingZeroBits();
+auto BigDecimal<T_Alloc>::normalize() -> void {
+    truncate_leading_zero_chunks();
+    truncate_trailing_zero_bits();
 }
 
 
 template <typename T_Alloc>
-auto Big_Decimal<T_Alloc>::IsNormalizedFractional() -> bool {
-    if (this->IsZero()) return true;
-    bool has_trailing_zeros = (Data.Value&0x1) == 0;
-    bool has_leading_zero_chunks = GetHead()->Value == 0x0;
+auto BigDecimal<T_Alloc>::is_normalized_fractional() -> bool {
+    if (this->is_zero()) return true;
+    bool has_trailing_zeros = (data.value&0x1) == 0;
+    bool has_leading_zero_chunks = get_head()->value == 0x0;
     if ( has_trailing_zeros || has_leading_zero_chunks) return false;
     return true;
 }
 
 template <typename T_Alloc>
-auto Big_Decimal<T_Alloc>::IsNormalizedInteger() -> bool {
-    return this->IsZero() || GetHead()->Value != 0x0;
+auto BigDecimal<T_Alloc>::is_normalized_integer() -> bool {
+    return this->is_zero() || get_head()->value != 0x0;
 }
 
 
@@ -925,23 +920,23 @@ auto Big_Decimal<T_Alloc>::IsNormalizedInteger() -> bool {
  *  \note   does not go beyond the old length, because there might be garbage values there.
 **/
 template <typename T_Alloc>
-auto Big_Decimal<T_Alloc>::UpdateLength() -> void {
-    Seg_List *chunk = &Data;
+auto BigDecimal<T_Alloc>::UpdateLength() -> void {
+    ChunkList *chunk = &data;
     i32 chunks_visited = 1;
     i32 new_length = 1;
-    while (chunks_visited < Length && (chunk = chunk->Next)) {
+    while (chunks_visited < length && (chunk = chunk->next)) {
         ++chunks_visited;
 
-        if (chunk->Value != 0x0) {
+        if (chunk->value != 0x0) {
             new_length = chunks_visited;
         }
     }
-    this->Length = new_length;
+    this->length = new_length;
     return;
 }
 
 template <typename T_Alloc>
-auto Big_Decimal<T_Alloc>::CopyTo(Big_Decimal *Dst, flags32 Flags) -> void {
+auto BigDecimal<T_Alloc>::copy_to(BigDecimal *Dst, flags32 Flags) -> void {
     HardAssert(Dst != nullptr);
 
     if (IsSet(Flags, COPY_SIGN)) Dst->IsNegative = this->IsNegative;
@@ -950,18 +945,18 @@ auto Big_Decimal<T_Alloc>::CopyTo(Big_Decimal *Dst, flags32 Flags) -> void {
 
     if (IsSet(Flags, COPY_DIGITS)) {
 
-        Seg_List *Ours = &Data, *Theirs = &Dst->Data;
+        ChunkList *Ours = &data, *Theirs = &Dst->data;
 
-        while (Dst->Length < Length) Dst->ExtendLength();
+        while (Dst->length < length) Dst->extend_length();
 
-        Dst->Length = Length; //if Dst->Length > this->Length
+        Dst->length = length; //if Dst->length > this->length
 
-        for ( u32 Idx = 0 ; Idx < Length ; ++Idx ) {
+        for ( u32 Idx = 0 ; Idx < length ; ++Idx ) {
 
-            Theirs->Value = Ours->Value;
+            Theirs->value = Ours->value;
 
-            Ours = Ours->Next;
-            Theirs = Theirs->Next;
+            Ours = Ours->next;
+            Theirs = Theirs->next;
         }
     }
 
@@ -974,25 +969,25 @@ auto Big_Decimal<T_Alloc>::CopyTo(Big_Decimal *Dst, flags32 Flags) -> void {
  *  \brief tells whether Abs(A) < Abs(B)
 **/
 template <typename T_Alloc>
-auto Big_Decimal<T_Alloc>::LessThanIntegerUnsigned(Big_Decimal<T_Alloc>& B) ->bool{
+auto BigDecimal<T_Alloc>::less_than_integer_unsigned(BigDecimal<T_Alloc>& B) ->bool{
 
-    Big_Decimal<T_Alloc>& A = *this;
+    BigDecimal<T_Alloc>& A = *this;
     bool Result = false;
-    u32 Length = A.Length;
-    if (A.Length == B.Length) {
-        for ( typename Big_Decimal<T_Alloc>::Seg_List
-                *A_chunk = A.GetHead(),
-                *B_chunk = B.GetHead()
-            ; Length > 0
-            ; A_chunk = A_chunk->Prev, B_chunk = B_chunk->Prev, --Length) {
-            if (A_chunk->Value == B_chunk->Value) {
+    u32 length = A.length;
+    if (A.length == B.length) {
+        for ( typename BigDecimal<T_Alloc>::ChunkList
+                *A_chunk = A.get_head(),
+                *B_chunk = B.get_head()
+            ; length > 0
+            ; A_chunk = A_chunk->prev, B_chunk = B_chunk->prev, --length) {
+            if (A_chunk->value == B_chunk->value) {
                 continue;
             }
-            Result = A_chunk->Value < B_chunk->Value;
+            Result = A_chunk->value < B_chunk->value;
             break;
         }
     } else {
-        Result = A.Length < B.Length;
+        Result = A.length < B.length;
     }
 
     return Result;
@@ -1000,57 +995,57 @@ auto Big_Decimal<T_Alloc>::LessThanIntegerUnsigned(Big_Decimal<T_Alloc>& B) ->bo
 
 
 template <typename T_Alloc>
-auto Big_Decimal<T_Alloc>::LessThanIntegerSigned(Big_Decimal<T_Alloc>& B) -> bool{
-    Big_Decimal<T_Alloc>& A = *this;
+auto BigDecimal<T_Alloc>::less_than_integer_signed(BigDecimal<T_Alloc>& B) -> bool{
+    BigDecimal<T_Alloc>& A = *this;
     bool Result = false;
     if (A.IsNegative != B.IsNegative) {
         Result = A.IsNegative;
     } else {
-        Result = !A.IsNegative && A.LessThanIntegerUnsigned(B)
-               || A.IsNegative && B.LessThanIntegerUnsigned(A);
+        Result = !A.IsNegative && A.less_than_integer_unsigned(B)
+               || A.IsNegative && B.less_than_integer_unsigned(A);
     }
     return Result;
 }
 
 
 template <typename T_Alloc>
-auto Big_Decimal<T_Alloc>::EqualBits(Big_Decimal<T_Alloc> const& B) -> bool {
+auto BigDecimal<T_Alloc>::equal_bits(BigDecimal<T_Alloc> const& B) -> bool {
 
-    Big_Decimal<T_Alloc>& A = *this;
+    BigDecimal<T_Alloc>& A = *this;
     bool all_equal = true;
-    all_equal &= A.Length == B.Length;
+    all_equal &= A.length == B.length;
 
-    using p_chunk = typename Big_Decimal<T_Alloc>::Seg_List const *;
-    p_chunk chunk_A = &A.Data, chunk_B = &B.Data;
+    using p_chunk = typename BigDecimal<T_Alloc>::ChunkList const *;
+    p_chunk chunk_A = &A.data, chunk_B = &B.data;
 
-    for ( u32 idx = 0 ; idx < A.Length && all_equal ; ++idx ) {
+    for ( u32 idx = 0 ; idx < A.length && all_equal ; ++idx ) {
 
-        all_equal &= chunk_A->Value == chunk_B->Value;
+        all_equal &= chunk_A->value == chunk_B->value;
 
-        chunk_A = chunk_A->Next;
-        chunk_B = chunk_B->Next;
+        chunk_A = chunk_A->next;
+        chunk_B = chunk_B->next;
     }
 
     return all_equal;
 }
 
 template <typename T_Alloc>
-auto Big_Decimal<T_Alloc>::EqualsInteger(Big_Decimal<T_Alloc> const& B) -> bool {
+auto BigDecimal<T_Alloc>::equals_integer(BigDecimal<T_Alloc> const& B) -> bool {
 
-    Big_Decimal<T_Alloc>& A = *this;
+    BigDecimal<T_Alloc>& A = *this;
     bool all_equal = true;
     all_equal &= A.IsNegative == B.IsNegative;
-    all_equal &= A.EqualBits(B);
+    all_equal &= A.equal_bits(B);
 
     return all_equal;
 }
 
 template <typename T_Alloc>
-auto Big_Decimal<T_Alloc>::EqualsFractional(Big_Decimal<T_Alloc> const& B) -> bool {
+auto BigDecimal<T_Alloc>::equals_fractional(BigDecimal<T_Alloc> const& B) -> bool {
 
-    Big_Decimal<T_Alloc>& A = *this;
+    BigDecimal<T_Alloc>& A = *this;
     bool all_equal = true;
-    all_equal &= A.EqualsInteger(B);
+    all_equal &= A.equals_integer(B);
     all_equal &= A.Exponent == B.Exponent;
 
     return all_equal;
@@ -1059,71 +1054,71 @@ auto Big_Decimal<T_Alloc>::EqualsFractional(Big_Decimal<T_Alloc> const& B) -> bo
 
 //TODO(##2024 06 08) param Allocator not used
 template <typename T_Alloc>
-auto Big_Decimal<T_Alloc>::GreaterEqualsInteger(Big_Decimal<T_Alloc>& B) -> bool {
-    Big_Decimal<T_Alloc>& A = *this;
-    return B.LessThanIntegerSigned( A ) || A.EqualsInteger( B );
+auto BigDecimal<T_Alloc>::greater_equals_integer(BigDecimal<T_Alloc>& B) -> bool {
+    BigDecimal<T_Alloc>& A = *this;
+    return B.less_than_integer_signed( A ) || A.equals_integer( B );
 }
 
 /**
 \brief  subtraction algorithm for the special case where both operands are positive and minuend >= subtrahend
  */
 template <typename T_Alloc>
-auto Big_Decimal<T_Alloc>::SubIntegerUnsignedPositive (Big_Decimal& B)-> void {
+auto BigDecimal<T_Alloc>::sub_integer_unsigned_positive (BigDecimal& B)-> void {
 
-    HardAssert(this->IsNormalizedInteger());
+    HardAssert(this->is_normalized_integer());
 
-    Big_Decimal& A = *this;
+    BigDecimal& A = *this;
 
     A.UpdateLength();
     B.UpdateLength();
 
-    HardAssert(A.GreaterEqualsInteger(B));
+    HardAssert(A.greater_equals_integer(B));
 
-    Seg_List *ChunkA = &A.Data;
-    Seg_List *ChunkB = &B.Data;
+    ChunkList *ChunkA = &A.data;
+    ChunkList *ChunkB = &B.data;
     u32 LeadingZeroBlocks = 0;
-    u32 iterations = [](Big_Decimal<T_Alloc>& X){
-        Seg_List *cur = &X.Data;
+    u32 iterations = [](BigDecimal<T_Alloc>& X){
+        ChunkList *cur = &X.data;
         i32 chunks_visited = 1;
         i32 significant_chunks = 1;
-        while ((cur = cur->Next) && chunks_visited < X.Length) {
+        while ((cur = cur->next) && chunks_visited < X.length) {
             ++chunks_visited;
-            if (cur->Value != 0x0) {
+            if (cur->value != 0x0) {
                 significant_chunks = chunks_visited;
             }
         }
         return significant_chunks;
     }(B);
 
-    HardAssert(B.Length == iterations);
+    HardAssert(B.length == iterations);
 
-    Big_Dec_Seg Carry = 0;
+    ChunkBits Carry = 0;
 
     for (u32 Idx = 0 ; Idx < iterations; ++Idx) {
-        if (ChunkB->Value == MAX_SEG_VAL && Carry) {
+        if (ChunkB->value == MAX_CHUNK_VAL && Carry) {
             Carry = 1;
-        } else if (ChunkA->Value >= ChunkB->Value + Carry) {
-            ChunkA->Value -= ChunkB->Value + Carry;
+        } else if (ChunkA->value >= ChunkB->value + Carry) {
+            ChunkA->value -= ChunkB->value + Carry;
             Carry = 0;
         } else {
-            ChunkA->Value += MAX_SEG_VAL - (ChunkB->Value + Carry) + 1;
+            ChunkA->value += MAX_CHUNK_VAL - (ChunkB->value + Carry) + 1;
             Carry = 1;
         }
-        ChunkA = ChunkA->Next;
-        ChunkB = ChunkB->Next;
+        ChunkA = ChunkA->next;
+        ChunkB = ChunkB->next;
     }
 
     if (Carry) {
-        HardAssert (A.Length > B.Length);
-        ChunkA->Value -= Carry;
-        if (ChunkA->Value == 0x0 && A.GetHead() == ChunkA) {
+        HardAssert (A.length > B.length);
+        ChunkA->value -= Carry;
+        if (ChunkA->value == 0x0 && A.get_head() == ChunkA) {
             A.UpdateLength();
         }
     }
 
-    this->TruncateLeadingZeroChunks();
+    this->truncate_leading_zero_chunks();
 
-    HardAssert(this->IsNormalizedInteger());
+    HardAssert(this->is_normalized_integer());
 
     return;
 }
@@ -1134,25 +1129,25 @@ auto Big_Decimal<T_Alloc>::SubIntegerUnsignedPositive (Big_Decimal& B)-> void {
         but the difference may cross zero, i.e. subtrahend may be greater than minuend
  */
 template <typename T_Alloc>
-auto Big_Decimal<T_Alloc>::SubIntegerUnsigned (Big_Decimal& B)-> void {
+auto BigDecimal<T_Alloc>::sub_integer_unsigned (BigDecimal& B)-> void {
 
-    HardAssert(this->IsNormalizedInteger());
+    HardAssert(this->is_normalized_integer());
 
-    Big_Decimal& A = *this;
+    BigDecimal& A = *this;
 
     bool crosses_zero = false;
-    if (A.LessThanIntegerSigned(B)) {
-        A.CopyTo(&temp_sub_int_unsign);
-        B.CopyTo(&A, COPY_DIGITS | COPY_SIGN); //SubInteger does not care about exponent, but callers might, so we keep it intact
+    if (A.less_than_integer_signed(B)) {
+        A.copy_to(&temp_sub_int_unsign);
+        B.copy_to(&A, COPY_DIGITS | COPY_SIGN); //SubInteger does not care about exponent, but callers might, so we keep it intact
         crosses_zero = true;
     }
-    Big_Decimal& B_ = crosses_zero ? temp_sub_int_unsign : B;
+    BigDecimal& B_ = crosses_zero ? temp_sub_int_unsign : B;
 
-    A.SubIntegerUnsignedPositive(B_);
+    A.sub_integer_unsigned_positive(B_);
 
-    if (crosses_zero) { A.Neg(); }
+    if (crosses_zero) { A.neg(); }
 
-    HardAssert(this->IsNormalizedInteger());
+    HardAssert(this->is_normalized_integer());
 
     return;
 }
@@ -1164,40 +1159,40 @@ auto Big_Decimal<T_Alloc>::SubIntegerUnsigned (Big_Decimal& B)-> void {
         will respect signs, however.
 */
 template <typename T_Alloc>
-auto Big_Decimal<T_Alloc>::SubIntegerSigned (Big_Decimal& B)-> void {
+auto BigDecimal<T_Alloc>::sub_integer_signed (BigDecimal& B)-> void {
 
-    HardAssert(this->IsNormalizedInteger());
+    HardAssert(this->is_normalized_integer());
 
-    Big_Decimal& A = *this;
+    BigDecimal& A = *this;
 
     if (!A.IsNegative && !B.IsNegative) {
 
-        A.SubIntegerUnsigned(B);
+        A.sub_integer_unsigned(B);
 
     } else if (A.IsNegative && B.IsNegative ) {
 
-        A.Neg();
-        B.Neg();
-        A.SubIntegerUnsigned(B);
-        B.Neg();
-        A.Neg();
+        A.neg();
+        B.neg();
+        A.sub_integer_unsigned(B);
+        B.neg();
+        A.neg();
 
     } else if (A.IsNegative) {
 
-        A.Neg();
-        A.AddIntegerUnsigned(B);
-        A.Neg();
+        A.neg();
+        A.add_integer_unsigned(B);
+        A.neg();
 
     } else { /* (B.IsNegative) */
 
-        B.Neg();
-        A.AddIntegerUnsigned(B);
-        B.Neg();
+        B.neg();
+        A.add_integer_unsigned(B);
+        B.neg();
     }
 
-    TruncateLeadingZeroChunks();
+    truncate_leading_zero_chunks();
 
-    HardAssert(this->IsNormalizedInteger());
+    HardAssert(this->is_normalized_integer());
 
     return;
 }
@@ -1205,25 +1200,25 @@ auto Big_Decimal<T_Alloc>::SubIntegerSigned (Big_Decimal& B)-> void {
 /**
  *  \brief  BIT-shift. simply shifts the bits, interpreted as ... sequence of bits, i.e. as unsigned integer.
  *  \n      exponent does not matter. decimal point does not matter.
- *  \note   PRE-condition: this->IsNormalizedInteger()
- *  \note   POST-condition: this->IsNormalizedInteger()
+ *  \note   PRE-condition: this->is_normalized_integer()
+ *  \note   POST-condition: this->is_normalized_integer()
  *  \note   naturally, the result is not guaranted to be a noramlized Fractional, i.e. may have trailing zeros
 **/
 template <typename T_Alloc>
-auto Big_Decimal<T_Alloc>::ShiftLeft(u32 ShiftAmount) -> Big_Decimal& {
+auto BigDecimal<T_Alloc>::shift_left(u32 ShiftAmount) -> BigDecimal& {
 
-    HardAssert(this->IsNormalizedInteger());
+    HardAssert(this->is_normalized_integer());
 
-    if (this->IsZero()) {
+    if (this->is_zero()) {
         return *this;
     }
 
-    Seg_List *Head = GetHead();
+    ChunkList *Head = get_head();
 
-    HardAssert(Head->Value != 0x0); //TODO(ArokhSlade##2024 08 20): support denormalized numbers?
+    HardAssert(Head->value != 0x0); //TODO(ArokhSlade##2024 08 20): support denormalized numbers?
 
-    constexpr u32 BitWidth = sizeof(Big_Dec_Seg) * 8;
-    u32 OldTopIdx = BitScanReverse<u64>(Head->Value);
+    constexpr u32 BitWidth = sizeof(ChunkBits) * 8;
+    u32 OldTopIdx = BitScanReverse<u64>(Head->value);
     HardAssert(OldTopIdx != BIT_SCAN_NO_HIT);
     u32 HeadZeros = BitWidth - 1 - OldTopIdx;
     i32 Overflow = ShiftAmount - HeadZeros;
@@ -1234,40 +1229,40 @@ auto Big_Decimal<T_Alloc>::ShiftLeft(u32 ShiftAmount) -> Big_Decimal& {
         if (Overflow % BitWidth != 0) { NeededChunks++; }
     }
 
-    for (u32 FreeChunks = m_chunks_capacity - Length; NeededChunks > FreeChunks; ++FreeChunks) {
-        ExpandCapacity();
+    for (u32 FreeChunks = m_chunks_capacity - length; NeededChunks > FreeChunks; ++FreeChunks) {
+        expand_capacity();
     }
-    //TODO(ArokhSlade##2024 10 04):can probably just replace this with DstChunk = ExtendLength(NeededChunks)
-    Seg_List *DstChunk = GetChunk(Length-1 + NeededChunks);
-    Seg_List *SrcChunk = Head;
+    //TODO(ArokhSlade##2024 10 04):can probably just replace this with DstChunk = extend_length(NeededChunks)
+    ChunkList *DstChunk = get_chunk(length-1 + NeededChunks);
+    ChunkList *SrcChunk = Head;
 
     u32 Offset = ShiftAmount % BitWidth;
     u32 NewTopIdx = (OldTopIdx + Offset) % BitWidth;
 
     if (NewTopIdx < OldTopIdx) {
-        DstChunk->Value = SrcChunk->Value >> BitWidth-Offset; //NOTE(ArokhSlade##2024 10 06): inside this `if`, Offset cannot be zero, and amount shifted by is guaranteed to be >= 0, < width
-        DstChunk = DstChunk->Prev;
+        DstChunk->value = SrcChunk->value >> BitWidth-Offset; //NOTE(ArokhSlade##2024 10 06): inside this `if`, Offset cannot be zero, and amount shifted by is guaranteed to be >= 0, < width
+        DstChunk = DstChunk->prev;
     }
 
-    for (i32 i = 0 ; i < Length-1 ; ++i, DstChunk = DstChunk->Prev, SrcChunk = SrcChunk->Prev) {
+    for (i32 i = 0 ; i < length-1 ; ++i, DstChunk = DstChunk->prev, SrcChunk = SrcChunk->prev) {
 
-        Big_Dec_Seg Left = SrcChunk->Value << Offset;
-        Big_Dec_Seg Right = SafeShiftRight(SrcChunk->Prev->Value, BitWidth-Offset); //NOTE(ArokhSlade##2024 08 20): regular shift would cause UB when Offset == 0
+        ChunkBits Left = SrcChunk->value << Offset;
+        ChunkBits Right = SafeShiftRight(SrcChunk->prev->value, BitWidth-Offset); //NOTE(ArokhSlade##2024 08 20): regular shift would cause UB when Offset == 0
 
-        DstChunk->Value = Left | Right;
+        DstChunk->value = Left | Right;
     }
 
-    HardAssert(SrcChunk == &Data);
-    DstChunk->Value = SrcChunk->Value << Offset;
+    HardAssert(SrcChunk == &data);
+    DstChunk->value = SrcChunk->value << Offset;
 
-    for (DstChunk = DstChunk->Prev ; DstChunk ; DstChunk = DstChunk->Prev) {
-        DstChunk->Value = 0x0;
+    for (DstChunk = DstChunk->prev ; DstChunk ; DstChunk = DstChunk->prev) {
+        DstChunk->value = 0x0;
     }
 
-    Length += NeededChunks;
-    HardAssert(Length <= m_chunks_capacity);
+    length += NeededChunks;
+    HardAssert(length <= m_chunks_capacity);
 
-    HardAssert(this->IsNormalizedInteger());
+    HardAssert(this->is_normalized_integer());
 
     return *this;
 }
@@ -1275,44 +1270,44 @@ auto Big_Decimal<T_Alloc>::ShiftLeft(u32 ShiftAmount) -> Big_Decimal& {
 /**
  *  \brief  BIT-shift. simply shifts the bits, interpreted as ... sequence of bits, i.e. as unsigned integer.
  *  \n      exponent does not matter. decimal point does not matter.
- *  \note   PRE-condition: this->IsNormalizedInteger()
- *  \note   POS-condition: this->IsNormalizedInteger()
+ *  \note   PRE-condition: this->is_normalized_integer()
+ *  \note   POS-condition: this->is_normalized_integer()
  *  \note   naturally, the result is not guaranted to be a noramlized Fractional, i.e. may have trailing zeros
 **/
 template <typename T_Alloc>
-auto Big_Decimal<T_Alloc>::ShiftRight(u32 ShiftAmount) -> Big_Decimal& {
+auto BigDecimal<T_Alloc>::shift_right(u32 ShiftAmount) -> BigDecimal& {
 
-    HardAssert(this->IsNormalizedInteger());
+    HardAssert(this->is_normalized_integer());
 
     if (ShiftAmount == 0) { return *this; }
-    if (this->IsZero()) { return *this; } //NOTE(ArokhSlade##2024 08 19): this normalizes Zero without calling Normalize() (no infinite loop)
+    if (this->is_zero()) { return *this; } //NOTE(ArokhSlade##2024 08 19): this normalizes Zero without calling normalize() (no infinite loop)
 
-    i32 BitCount = CountBits();
-    if (ShiftAmount >= BitCount) { this->Zero(ZERO_DIGITS); return *this; }
+    i32 BitCount = count_bits();
+    if (ShiftAmount >= BitCount) { this->zero(ZERO_DIGITS); return *this; }
 
-    u32 BitWidth = Big_Dec_Seg_Width;
+    u32 BitWidth = CHUNK_WIDTH;
     u32 Offset = ShiftAmount % BitWidth;
     i32 ChunksShifted = ShiftAmount / BitWidth;
 
-    Seg_List *Src = GetChunk(ChunksShifted);
-    Seg_List *Dst = &Data;
+    ChunkList *Src = get_chunk(ChunksShifted);
+    ChunkList *Dst = &data;
     i32 IterCount = 0;
 
-    for (i32 i_Src = ChunksShifted  ; i_Src < Length-1 ; ++i_Src, ++IterCount) {
-        Big_Dec_Seg Right = Src->Value >> Offset;
-        Big_Dec_Seg Left  = Offset == 0 ? 0x0 : Src->Next->Value << BitWidth-Offset; //NOTE(ArokhSlade##2024 08 20): x>>y UB for y >= BitWidth. according to standard.
-        Dst->Value = Left | Right;
+    for (i32 i_Src = ChunksShifted  ; i_Src < length-1 ; ++i_Src, ++IterCount) {
+        ChunkBits Right = Src->value >> Offset;
+        ChunkBits Left  = Offset == 0 ? 0x0 : Src->next->value << BitWidth-Offset; //NOTE(ArokhSlade##2024 08 20): x>>y UB for y >= BitWidth. according to standard.
+        Dst->value = Left | Right;
 
-        Src = Src->Next;
-        Dst = Dst->Next;
+        Src = Src->next;
+        Dst = Dst->next;
     }
 
-    Dst->Value = Src->Value >> Offset;
-    if (Dst->Value) IterCount++;
+    Dst->value = Src->value >> Offset;
+    if (Dst->value) IterCount++;
 
-    Length = IterCount;
+    length = IterCount;
 
-    HardAssert(this->IsNormalizedInteger());
+    HardAssert(this->is_normalized_integer());
 
     return *this;
 }
@@ -1324,157 +1319,103 @@ void FullMulN(uN A, uN B, uN C[2]);
 \brief  multiply, treat operands as integers, i.e. ignore exponents.
 */
 template <typename T_Alloc>
-auto Big_Decimal<T_Alloc>::MulInteger (Big_Decimal& B)-> void {
+auto BigDecimal<T_Alloc>::mul_integer (BigDecimal& B)-> void {
 
-    HardAssert(this->IsNormalizedInteger());
+    HardAssert(this->is_normalized_integer());
 
-    Big_Decimal& A = *this;
-    Big_Decimal& carries = temp_mul_int_carries;
-    Big_Decimal& result = temp_mul_int_0;
-    Big_Decimal& row_result = temp_mul_int_1;
+    BigDecimal& A = *this;
+    BigDecimal& carries = temp_mul_int_carries;
+    BigDecimal& result = temp_mul_int_0;
+    BigDecimal& row_result = temp_mul_int_1;
 
-//    if (A.IsZero() || B.IsZero()) {
-//        this->Zero(); //TODO(ArokhSlade##2024 10 19): sign!
+//    if (A.is_zero() || B.is_zero()) {
+//        this->zero(); //TODO(ArokhSlade##2024 10 19): sign!
 //        return;
 //    }
 
-	carries.Zero();
-	result.Zero();
+	carries.zero();
+	result.zero();
 
-	Seg_List *chunk_A = &A.Data;
-	for (u32 IdxA = 0 ; IdxA < A.Length ; ++IdxA, chunk_A = chunk_A->Next) {
+	ChunkList *chunk_A = &A.data;
+	for (u32 IdxA = 0 ; IdxA < A.length ; ++IdxA, chunk_A = chunk_A->next) {
         HardAssert(chunk_A != nullptr);
-        Seg_List *chunk_B = &B.Data;
+        ChunkList *chunk_B = &B.data;
 
-	    row_result.Zero();
-	    Seg_List *chunk_row_result = &row_result.Data;
+	    row_result.zero();
+	    ChunkList *chunk_row_result = &row_result.data;
         u32 carriesActualLength = 1;
-        carries.Zero();
-//        if (chunk_A->Value != 0x0) {
-            Seg_List *chunk_carries = &carries.Data;
-            while (carries.Length <= IdxA) {
-                carries.ExtendLength();
-                chunk_carries = chunk_carries->Next;
+        carries.zero();
+//        if (chunk_A->value != 0x0) {
+            ChunkList *chunk_carries = &carries.data;
+            while (carries.length <= IdxA) {
+                carries.extend_length();
+                chunk_carries = chunk_carries->next;
             }
-            for (u32 IdxB = 0 ; IdxB < B.Length ; ++IdxB, chunk_B = chunk_B->Next) {
+            for (u32 IdxB = 0 ; IdxB < B.length ; ++IdxB, chunk_B = chunk_B->next) {
                 HardAssert(chunk_B != nullptr);
-                Big_Dec_Seg ChunkProd[2] = {};
-                FullMulN<Big_Dec_Seg>(chunk_A->Value, chunk_B->Value, ChunkProd);
-                while (row_result.Length-1 < IdxA + IdxB) {
-                    row_result.ExtendLength();
+                ChunkBits ChunkProd[2] = {};
+                FullMulN<ChunkBits>(chunk_A->value, chunk_B->value, ChunkProd);
+                while (row_result.length-1 < IdxA + IdxB) {
+                    row_result.extend_length();
                 }
-                chunk_row_result = row_result.GetChunk(IdxA+IdxB);
-                chunk_row_result->Value = ChunkProd[0];
+                chunk_row_result = row_result.get_chunk(IdxA+IdxB);
+                chunk_row_result->value = ChunkProd[0];
 
-                carries.ExtendLength();
-                chunk_carries = chunk_carries->Next;
+                carries.extend_length();
+                chunk_carries = chunk_carries->next;
                 HardAssert(chunk_carries != nullptr);
-                chunk_carries->Value = ChunkProd[1];
-                carriesActualLength = ChunkProd[1] != 0 ? carries.Length : carriesActualLength;
+                chunk_carries->value = ChunkProd[1];
+                carriesActualLength = ChunkProd[1] != 0 ? carries.length : carriesActualLength;
             }
-            HardAssert(row_result.Length >= IdxA + B.Length);
-            HardAssert(carries.Length >= row_result.Length);
-            chunk_carries = &carries.Data;
+            HardAssert(row_result.length >= IdxA + B.length);
+            HardAssert(carries.length >= row_result.length);
+            chunk_carries = &carries.data;
             for (u32 CheckIdx = 0; CheckIdx <= IdxA ; CheckIdx++) {
                 HardAssert(chunk_carries != nullptr);
-                chunk_carries->Value == 0; //TODO(ArokhSlade##2024 09 23): no-op. intent? assert, i think. because there can't be carry values for the chunks below-or-equal IdxA
-                chunk_carries = chunk_carries->Next;
+                chunk_carries->value == 0; //TODO(ArokhSlade##2024 09 23): no-op. intent? assert, i think. because there can't be carry values for the chunks below-or-equal IdxA
+                chunk_carries = chunk_carries->next;
             }
-            carries.Length = carriesActualLength;
+            carries.length = carriesActualLength;
 
             row_result.UpdateLength();
 
-            HardAssert(row_result.IsNormalizedInteger());
-            HardAssert(carries.IsNormalizedInteger());
-            HardAssert(result.IsNormalizedInteger());
+            HardAssert(row_result.is_normalized_integer());
+            HardAssert(carries.is_normalized_integer());
+            HardAssert(result.is_normalized_integer());
 
-            row_result.AddIntegerSigned(carries);
-            result.AddIntegerSigned(row_result);
+            row_result.add_integer_signed(carries);
+            result.add_integer_signed(row_result);
 //        }
 	}
 
 	result.IsNegative = A.IsNegative != B.IsNegative;
-	result.CopyTo(&A);
+	result.copy_to(&A);
 
-	HardAssert(this->IsNormalizedInteger());
+	HardAssert(this->is_normalized_integer());
 
     return;
 }
 
 
-#if OLD_GetMSB
-/**
- *  \brief computes most significant bit in terms of internal bit sequence.
- *  \return index of leading 1 (lsb 0 numbering) for non-zero values, 0 otherwise.
- *  \note works also if this->IsNormalizedFractional() == false
- */
-template <typename T_Alloc>
-auto Big_Decimal<T_Alloc>::GetMSB() -> i32 {
-
-    if (IsZero()) return 0;
-    typename Big_Decimal<T_Alloc>::Seg_List *Cur = GetHead();
-    i32 Result = 0;
-    for (int i = 0 ; i < Length ; ++i, Cur = Cur->Prev) {
-        if (Cur->Value != 0x0) {
-            Result = BitScanReverse<Big_Dec_Seg>(Cur->Value) + (Length-i-1) * Big_Dec_Seg_Width;
-            break;
-        }
-    }
-    return Result;
-}
-#else
 /**
  *  \brief computes most significant bit in terms of internal bit sequence.
  *  \return index of leading 1 (lsb 0 numbering) for non-zero values, 0 otherwise.
  *  \note   Big Decimal must have no leading zero chunks
  */
 template <typename T_Alloc>
-auto Big_Decimal<T_Alloc>::GetMSB() -> i32 {
+auto BigDecimal<T_Alloc>::get_msb() -> i32 {
 
-    HardAssert(IsNormalizedInteger());
+    HardAssert(is_normalized_integer());
 
-    if (IsZero()) return 0;
-    typename Big_Decimal<T_Alloc>::Seg_List *Cur = GetHead();
+    if (is_zero()) return 0;
+    typename BigDecimal<T_Alloc>::ChunkList *Cur = get_head();
     i32 Result = 0;
-    Result = BitScanReverse<Big_Dec_Seg>(Cur->Value) + (Length-1) * Big_Dec_Seg_Width;
+    Result = BitScanReverse<ChunkBits>(Cur->value) + (length-1) * CHUNK_WIDTH;
     return Result;
 
 }
-#endif
 
 
-
-#if OLD_GetBit
-/** Get Bit at Idx N, 0-based, starting from top.
- *  e.g. N=0 yields MSB.
- **/
-template<typename T_Alloc>
-auto Big_Decimal<T_Alloc>::GetBit(i32 N) -> bool {
-    HardAssert(0 <= N);
-
-    Seg_List*Cur = GetHead();
-    while (Cur->Value == 0x0 && Cur != &Data) Cur = Cur->Prev;
-    i32 TopIdx = Cur->Value == 0 ? 0 : BitScanReverse<Big_Dec_Seg>(Cur->Value);
-    i32 TopBits = TopIdx+1;
-
-    i32 BitsLeft = N;
-    u32 Mask = 0x1 << TopIdx;
-    if (TopBits < BitsLeft) {
-        BitsLeft -= TopBits;
-        Cur = Cur->Prev;
-        for ( i32 StepBits = Big_Dec_Seg_Width ; StepBits < BitsLeft ; Cur = Cur->Prev ){
-            HardAssert(Cur != nullptr);
-            BitsLeft-=StepBits;
-        }
-        Mask = 0x1 << (Big_Dec_Seg_Width-1);
-    }
-
-    Mask >>= BitsLeft;
-//    HardAssert(N < CountBitsButSkipLeadingZeroChunks(*this) || Mask == 0x0);
-    HardAssert(N < this->CountBits() || Mask == 0x0);
-    return ((Cur->Value & Mask) != 0);
-}
-#else
 /** \brief  Get Bit at Index N (MSb 0 bit numbering),
  *  \n      i.e. 0-based, starting from top.
  *  \n      e.g. N=0 yields MSB.
@@ -1482,41 +1423,40 @@ auto Big_Decimal<T_Alloc>::GetBit(i32 N) -> bool {
  *  \note   Big Decimal must have no leading zero chunks
  **/
 template<typename T_Alloc>
-auto Big_Decimal<T_Alloc>::GetBit(i32 high_idx) -> bool {
+auto BigDecimal<T_Alloc>::get_bit(i32 high_idx) -> bool {
     HardAssert(0 <= high_idx);
-    HardAssert(IsNormalizedInteger());
+    HardAssert(is_normalized_integer());
 
-    i32 low_idx = GetMSB() - high_idx;
+    i32 low_idx = get_msb() - high_idx;
 
     HardAssert(low_idx >= 0);
 
-    i32 chunk_idx = low_idx / Big_Dec_Seg_Width;
-    i32 bit_idx = low_idx % Big_Dec_Seg_Width;
+    i32 chunk_idx = low_idx / CHUNK_WIDTH;
+    i32 bit_idx = low_idx % CHUNK_WIDTH;
 
-    Seg_List* chunk = GetChunk(chunk_idx);
-    bool result = chunk->Value & (Big_Dec_Seg(1) << bit_idx);
+    ChunkList* chunk = get_chunk(chunk_idx);
+    bool result = chunk->value & (ChunkBits(1) << bit_idx);
     return result;
 }
-#endif
 
 
 template<typename T_Alloc>
-auto Big_Decimal<T_Alloc>::CountBits() -> i32 {
-    return GetMSB() + 1;
+auto BigDecimal<T_Alloc>::count_bits() -> i32 {
+    return get_msb() + 1;
 }
 
 /**
 \brief performs round-to-even with guard bit, round bit and sticky bits (any 1 after the round bit counts as sticky bit set)
  */
 template<typename T_Alloc>
-auto Big_Decimal<T_Alloc>::RoundToNSignificantBits(i32 N) -> void {
-    HardAssert(this->IsNormalizedFractional());
-    i32 BitCount = this->CountBits();
+auto BigDecimal<T_Alloc>::round_to_n_significant_bits(i32 N) -> void {
+    HardAssert(this->is_normalized_fractional());
+    i32 BitCount = this->count_bits();
     if (BitCount <= N) return;
 
-    i32 LSB = N==0 ? 0 : GetBit(N-1);
-    i32 Guard = GetBit(N);
-    // we know: this->IsNormalizedFractional(), therefor LSB == 1
+    i32 LSB = N==0 ? 0 : get_bit(N-1);
+    i32 Guard = get_bit(N);
+    // we know: this->is_normalized_fractional(), therefor LSB == 1
     // for explanation sake, assume bits are numbered front to back, i.e. LSB at [0]
     // we will round to N bits, i.e. indices [0..N-1]
     // bit[N] = Guard bit
@@ -1526,7 +1466,7 @@ auto Big_Decimal<T_Alloc>::RoundToNSignificantBits(i32 N) -> void {
     // Round OR Sticky bit is set, if we have N+2 or more bits.
     i32 RoundSticky = BitCount >  N + 1 ;
 
-    ShiftRight(BitCount-N);
+    shift_right(BitCount-N);
 
     //GRS:100 = midway, round if lsb is set, i.e. "uneven"
     //all other cases are determined:
@@ -1534,38 +1474,38 @@ auto Big_Decimal<T_Alloc>::RoundToNSignificantBits(i32 N) -> void {
     //Guard bit set followed by a 1 anywhere later ("round or sticky") = round up
     bool RoundUp = Guard && (RoundSticky || LSB); //NOTE(Arokh##2024 07 14): round-to-even
     if (RoundUp) {
-        AddIntegerUnsigned(temp_one);
+        add_integer_unsigned(temp_one);
     }
 
-    i32 NewBitCount = this->CountBits();
+    i32 NewBitCount = this->count_bits();
     HardAssert(NewBitCount == N || NewBitCount == N+1);
-    if (/* !this->IsZero()  &&*/ NewBitCount == N+1) { //TODO(##2024 07 13):CountBits returns 1 for zero. that's why we check for IsZero here. review!
-        Normalize();
+    if (/* !this->is_zero()  &&*/ NewBitCount == N+1) { //TODO(##2024 07 13):count_bits returns 1 for zero. that's why we check for is_zero here. review!
+        normalize();
         ++Exponent;
     }
-    Normalize();
+    normalize();
 
     return;
 }
 
 
 template <typename T_Alloc>
-auto DivInteger(Big_Decimal<T_Alloc>& A, Big_Decimal<T_Alloc>& B, Big_Decimal<T_Alloc>& ResultInteger, Big_Decimal<T_Alloc>& ResultFraction, u32 MinFracPrecision=32) -> bool{
+auto div_integer(BigDecimal<T_Alloc>& A, BigDecimal<T_Alloc>& B, BigDecimal<T_Alloc>& ResultInteger, BigDecimal<T_Alloc>& ResultFraction, u32 MinFracPrecision=32) -> bool{
 
-    HardAssert(A.IsNormalizedInteger());
-    HardAssert(B.IsNormalizedInteger());
+    HardAssert(A.is_normalized_integer());
+    HardAssert(B.is_normalized_integer());
 
-    bool was_div_by_zero = B.IsZero();
+    bool was_div_by_zero = B.is_zero();
     if (ResultInteger.was_divided_by_zero = was_div_by_zero) {
-        ResultInteger.Zero();
+        ResultInteger.zero();
         return was_div_by_zero;
     }
 
-    using T_Big_Decimal = Big_Decimal<T_Alloc>;
-    ResultInteger.Set(0);
-    ResultFraction.Set(0);
+    using T_Big_Decimal = BigDecimal<T_Alloc>;
+    ResultInteger.set(0);
+    ResultFraction.set(0);
 
-    int DigitCountB = B.CountBits();
+    int DigitCountB = B.count_bits();
     bool IntegerPartDone = false;
     bool NonZeroInteger = false;
 
@@ -1573,35 +1513,35 @@ auto DivInteger(Big_Decimal<T_Alloc>& A, Big_Decimal<T_Alloc>& B, Big_Decimal<T_
     T_Big_Decimal& B_    = T_Big_Decimal::temp_div_int_b;
     T_Big_Decimal& One_  = T_Big_Decimal::temp_one;
     T_Big_Decimal& Temp_ = T_Big_Decimal::temp_div_int_0;
-    A.CopyTo(&A_);
-    B.CopyTo(&B_);
+    A.copy_to(&A_);
+    B.copy_to(&B_);
     A_.IsNegative = B_.IsNegative = false;
 
 
     //Compute Integer Part
 
-    if ( A_.GreaterEqualsInteger(B_) ) {
+    if ( A_.greater_equals_integer(B_) ) {
         NonZeroInteger = true;
-        for ( ; !A_.IsZero() && !IntegerPartDone ; ) {
-            int DigitCountA = A_.CountBits();
+        for ( ; !A_.is_zero() && !IntegerPartDone ; ) {
+            int DigitCountA = A_.count_bits();
             int Diff = DigitCountA - DigitCountB;
 
             if (Diff > 0) {
-                B_.ShiftLeft(Diff);
-                if (A_.LessThanIntegerSigned(B_)){
-                    B_.ShiftRight(1);
+                B_.shift_left(Diff);
+                if (A_.less_than_integer_signed(B_)){
+                    B_.shift_right(1);
                     Diff -= 1;
                 }
-                Temp_.Set(1);
-                Temp_.ShiftLeft(Diff);
-                ResultInteger.AddIntegerSigned(Temp_);
-                A_.SubIntegerSigned(B_);
-                B.CopyTo(&B_, T_Big_Decimal::COPY_DIGITS | T_Big_Decimal::COPY_EXPONENT); //Don't copy Sign
+                Temp_.set(1);
+                Temp_.shift_left(Diff);
+                ResultInteger.add_integer_signed(Temp_);
+                A_.sub_integer_signed(B_);
+                B.copy_to(&B_, T_Big_Decimal::COPY_DIGITS | T_Big_Decimal::COPY_EXPONENT); //Don't copy Sign
             }
             else if (Diff == 0) {
-                if ( A_.GreaterEqualsInteger(B_) ) {
-                    A_.SubIntegerSigned(B_);
-                    ResultInteger.AddIntegerSigned(One_);
+                if ( A_.greater_equals_integer(B_) ) {
+                    A_.sub_integer_signed(B_);
+                    ResultInteger.add_integer_signed(One_);
                 } else {
                     IntegerPartDone = true;
                 }
@@ -1609,49 +1549,49 @@ auto DivInteger(Big_Decimal<T_Alloc>& A, Big_Decimal<T_Alloc>& B, Big_Decimal<T_
                 IntegerPartDone = true; //A.#Digits < B.#NumDigits => A/B = 0.something
             }
         }
-        if (A_.IsZero()) {
+        if (A_.is_zero()) {
             return was_div_by_zero;
         }
     }
     else { IntegerPartDone = true; }
 
-    ResultInteger.Exponent = ResultInteger.CountBits() - 1;
+    ResultInteger.Exponent = ResultInteger.count_bits() - 1;
 
-    i32 DigitCountA = A_.CountBits();
+    i32 DigitCountA = A_.count_bits();
     i32 RevDiff = DigitCountB-DigitCountA;
-    A_.ShiftLeft(RevDiff);
-    if (A_.LessThanIntegerSigned(B_)) {
-        A_.ShiftLeft(1);
+    A_.shift_left(RevDiff);
+    if (A_.less_than_integer_signed(B_)) {
+        A_.shift_left(1);
         RevDiff += 1;
     }
 
-    ResultFraction.Set(0x1, false, -RevDiff);
+    ResultFraction.set(0x1, false, -RevDiff);
     i32 ExplicitSignificantFractionBits = 1 ;
-    A_.SubIntegerSigned(B_);
+    A_.sub_integer_signed(B_);
 
     //Compute Fraction Part
-    for ( ; ExplicitSignificantFractionBits < MinFracPrecision && !A_.IsZero() ; ) {
-        int DigitCountA = A_.CountBits();
+    for ( ; ExplicitSignificantFractionBits < MinFracPrecision && !A_.is_zero() ; ) {
+        int DigitCountA = A_.count_bits();
         int RevDiff = DigitCountB-DigitCountA;
         HardAssert(RevDiff >= 0);
         if (RevDiff == 0) {
-            HardAssert(A_.LessThanIntegerSigned(B_));
+            HardAssert(A_.less_than_integer_signed(B_));
 
-            A_.ShiftLeft(1);
+            A_.shift_left(1);
             ExplicitSignificantFractionBits += 1;
-            ResultFraction.ShiftLeft(1);
-            ResultFraction.AddIntegerSigned(One_);
-            A_.SubIntegerSigned(B_);
+            ResultFraction.shift_left(1);
+            ResultFraction.add_integer_signed(One_);
+            A_.sub_integer_signed(B_);
         } else if (RevDiff > 0) {
-            A_.ShiftLeft(RevDiff);
-            if (A_.LessThanIntegerSigned(B_)) {
-                A_.ShiftLeft(1);
+            A_.shift_left(RevDiff);
+            if (A_.less_than_integer_signed(B_)) {
+                A_.shift_left(1);
                 RevDiff += 1;
             }
             ExplicitSignificantFractionBits += RevDiff;
-            ResultFraction.ShiftLeft(RevDiff);
-            ResultFraction.AddIntegerSigned(One_);
-            A_.SubIntegerSigned(B_);
+            ResultFraction.shift_left(RevDiff);
+            ResultFraction.add_integer_signed(One_);
+            A_.sub_integer_signed(B_);
         }
     }
 
@@ -1664,33 +1604,33 @@ auto DivInteger(Big_Decimal<T_Alloc>& A, Big_Decimal<T_Alloc>& B, Big_Decimal<T_
 \brief  integer division, treat operands as integers, i.e. ignore their exponents.
  */
 template <typename T_Alloc>
-auto Big_Decimal<T_Alloc>::DivInteger (Big_Decimal& B, u32 MinFracPrecision) -> void {
+auto BigDecimal<T_Alloc>::div_integer (BigDecimal& B, u32 MinFracPrecision) -> void {
 
-    HardAssert(this->IsNormalizedInteger());
+    HardAssert(this->is_normalized_integer());
 
-    ::DivInteger(*this, B, temp_div_frac_int_part, temp_div_frac_frac_part, MinFracPrecision);
+    ::div_integer(*this, B, temp_div_frac_int_part, temp_div_frac_frac_part, MinFracPrecision);
 
-    HardAssert(temp_div_frac_frac_part.IsZero() || temp_div_frac_frac_part.Exponent < 0 );
-    HardAssert(temp_div_frac_int_part.IsZero() || temp_div_frac_int_part.Exponent >=0);
+    HardAssert(temp_div_frac_frac_part.is_zero() || temp_div_frac_frac_part.Exponent < 0 );
+    HardAssert(temp_div_frac_int_part.is_zero() || temp_div_frac_int_part.Exponent >=0);
 
-    temp_div_frac_int_part.CopyTo(this, Big_Decimal::COPY_DIGITS | Big_Decimal::COPY_EXPONENT);
+    temp_div_frac_int_part.copy_to(this, BigDecimal::COPY_DIGITS | BigDecimal::COPY_EXPONENT);
 
     this->IsNegative = false;
 
     HardAssert(!temp_div_frac_frac_part.IsNegative);
-    this->AddFractional(temp_div_frac_frac_part);
+    this->add_fractional(temp_div_frac_frac_part);
 
     this->IsNegative = temp_div_frac_int_part.IsNegative;
 
-    HardAssert(this->IsNormalizedInteger());
+    HardAssert(this->is_normalized_integer());
 
     return;
 }
 
 template <typename T_Alloc>
-auto Big_Decimal<T_Alloc>::GetLeastSignificantExponent() -> i32 {
-    HardAssert(IsNormalizedFractional());
-    return (Exponent-this->CountBits())+1;
+auto BigDecimal<T_Alloc>::get_least_significant_exponent() -> i32 {
+    HardAssert(is_normalized_fractional());
+    return (Exponent-this->count_bits())+1;
 }
 
 
@@ -1698,27 +1638,27 @@ auto Big_Decimal<T_Alloc>::GetLeastSignificantExponent() -> i32 {
 \brief addition algorithm that treats operands as fractionals.
  */
 template <typename T_Alloc>
-auto Big_Decimal<T_Alloc>::AddFractional (Big_Decimal& B) -> void {
-    Big_Decimal& A = *this;
-    HardAssert(A.IsNormalizedFractional());
-    HardAssert(B.IsNormalizedFractional());
-    int A_LSE = A.GetLeastSignificantExponent();
-    int B_LSE = B.GetLeastSignificantExponent();
+auto BigDecimal<T_Alloc>::add_fractional (BigDecimal& B) -> void {
+    BigDecimal& A = *this;
+    HardAssert(A.is_normalized_fractional());
+    HardAssert(B.is_normalized_fractional());
+    int A_LSE = A.get_least_significant_exponent();
+    int B_LSE = B.get_least_significant_exponent();
     int Diff = A_LSE - B_LSE;
-    Big_Decimal& B_ = temp_add_fractional;
-    B.CopyTo(&B_);
+    BigDecimal& B_ = temp_add_fractional;
+    B.copy_to(&B_);
     if (Diff > 0 ) {
-        A.ShiftLeft(Diff);
+        A.shift_left(Diff);
     }
     if (Diff < 0) {
-        B_.ShiftLeft(-Diff);
+        B_.shift_left(-Diff);
     }
-    int OldMSB = A.GetMSB();
-    bool WasZero = A.IsZero();
-    A.AddIntegerSigned(B_);
-    int NewMSB = A.GetMSB();
+    int OldMSB = A.get_msb();
+    bool WasZero = A.is_zero();
+    A.add_integer_signed(B_);
+    int NewMSB = A.get_msb();
     A.Exponent = WasZero ? B_.Exponent : A.Exponent+(NewMSB-OldMSB);
-    Normalize();
+    normalize();
 
     return;
 }
@@ -1728,25 +1668,25 @@ auto Big_Decimal<T_Alloc>::AddFractional (Big_Decimal& B) -> void {
 \brief subtraction algorithm that treats operands as fractionals.
  */
 template <typename T_Alloc>
-auto Big_Decimal<T_Alloc>::SubFractional (Big_Decimal& B)-> void {
-    HardAssert(IsNormalizedFractional());
-    Big_Decimal& A = *this;
-    int A_LSE = A.GetLeastSignificantExponent();
-    int B_LSE = B.GetLeastSignificantExponent();
+auto BigDecimal<T_Alloc>::sub_fractional (BigDecimal& B)-> void {
+    HardAssert(is_normalized_fractional());
+    BigDecimal& A = *this;
+    int A_LSE = A.get_least_significant_exponent();
+    int B_LSE = B.get_least_significant_exponent();
     int Diff = A_LSE - B_LSE;
-    Big_Decimal& B_ = Big_Decimal<T_Alloc>::temp_sub_frac;
-    B.CopyTo(&B_);
+    BigDecimal& B_ = BigDecimal<T_Alloc>::temp_sub_frac;
+    B.copy_to(&B_);
     if (Diff > 0 ) {
-        A.ShiftLeft(Diff);
+        A.shift_left(Diff);
     }
     if (Diff < 0) {
-        B_.ShiftLeft(-Diff);
+        B_.shift_left(-Diff);
     }
-    int OldMSB = GetMSB();
-    A.SubIntegerSigned(B_);
-    int NewMSB = GetMSB();
+    int OldMSB = get_msb();
+    A.sub_integer_signed(B_);
+    int NewMSB = get_msb();
     A.Exponent += (NewMSB-OldMSB);
-    Normalize();
+    normalize();
 
     return;
 }
@@ -1756,14 +1696,14 @@ auto Big_Decimal<T_Alloc>::SubFractional (Big_Decimal& B)-> void {
 \brief multiply algorithm that treats operands as fractionals.
  */
 template <typename T_Alloc>
-auto Big_Decimal<T_Alloc>::MulFractional(Big_Decimal& B) -> void {
-    HardAssert(IsNormalizedFractional());
-    HardAssert(B.IsNormalizedFractional());
-    Big_Decimal& A = *this;
-    int Exponent_ = A.Exponent + B.Exponent - A.GetMSB() - B.GetMSB();
-    A.MulInteger(B);
-    Normalize();
-	A.Exponent = Exponent_ + A.GetMSB();
+auto BigDecimal<T_Alloc>::mul_fractional(BigDecimal& B) -> void {
+    HardAssert(is_normalized_fractional());
+    HardAssert(B.is_normalized_fractional());
+    BigDecimal& A = *this;
+    int Exponent_ = A.Exponent + B.Exponent - A.get_msb() - B.get_msb();
+    A.mul_integer(B);
+    normalize();
+	A.Exponent = Exponent_ + A.get_msb();
 
     return;
 }
@@ -1773,38 +1713,38 @@ auto Big_Decimal<T_Alloc>::MulFractional(Big_Decimal& B) -> void {
 \brief division algorithm that treats operands as fractionals.
  */
 template <typename T_Alloc>
-auto Big_Decimal<T_Alloc>::DivFractional (Big_Decimal& B, u32 MinFracPrecision) -> void {
+auto BigDecimal<T_Alloc>::div_fractional (BigDecimal& B, u32 MinFracPrecision) -> void {
 
-    Big_Decimal& A = *this;
-    HardAssert(A.IsNormalizedFractional());
-    HardAssert(B.IsNormalizedFractional());
+    BigDecimal& A = *this;
+    HardAssert(A.is_normalized_fractional());
+    HardAssert(B.is_normalized_fractional());
 
-    if (B.IsZero()) {
+    if (B.is_zero()) {
         A.was_divided_by_zero = true;
         return;
     }
 
-    int A_LSE = A.GetLeastSignificantExponent();
-    int B_LSE = B.GetLeastSignificantExponent();
+    int A_LSE = A.get_least_significant_exponent();
+    int B_LSE = B.get_least_significant_exponent();
     int Diff = A_LSE - B_LSE;
 
-    Big_Decimal& B_ = Big_Decimal<T_Alloc>::temp_div_frac;
-    B.CopyTo(&B_);
+    BigDecimal& B_ = BigDecimal<T_Alloc>::temp_div_frac;
+    B.copy_to(&B_);
     if (Diff > 0 ) {
-        A.ShiftLeft(Diff);
+        A.shift_left(Diff);
     }
     if (Diff < 0) {
-        B_.ShiftLeft(-Diff);
+        B_.shift_left(-Diff);
     }
-    A.DivInteger( B_, MinFracPrecision );
-    Normalize();
+    A.div_integer( B_, MinFracPrecision );
+    normalize();
 
     return;
 }
 
 
 template <typename T_Alloc>
-auto Big_Decimal<T_Alloc>::Neg () -> void {
+auto BigDecimal<T_Alloc>::neg () -> void {
     this->IsNegative = !this->IsNegative;
 }
 
@@ -1814,13 +1754,13 @@ auto Big_Decimal<T_Alloc>::Neg () -> void {
  *         but this can be controlled with flags
  *  \arg   what : leave empty for default (ZERO_DIGITS_ONLY), or add ZERO_SIGN | ZERO_EXPONENT as needed
  *  \note  why this function exists:
- *         1: it's presumeably cheaper than Set(0) (used often in hot loops of multiply alrogithm for example)
- *         2: easier say A.Zero() than A.Set(0,A.IsNegative,A.Exponent)
- *            and more explicit and clear to say A.Zero(ZERO_EVERYTHING) than A.Set(0)*/
+ *         1: it's presumeably cheaper than set(0) (used often in hot loops of multiply alrogithm for example)
+ *         2: easier say A.zero() than A.set(0,A.IsNegative,A.Exponent)
+ *            and more explicit and clear to say A.zero(ZERO_EVERYTHING) than A.set(0)*/
 template <typename T_Alloc>
-auto Big_Decimal<T_Alloc>::Zero(flags32 what) -> void {
-        Data.Value = 0x0;
-        Length = 1;
+auto BigDecimal<T_Alloc>::zero(flags32 what) -> void {
+        data.value = 0x0;
+        length = 1;
     if (IsSet(what, ZERO_SIGN))
         IsNegative = false;
     if (IsSet(what, ZERO_EXPONENT))
@@ -1828,22 +1768,22 @@ auto Big_Decimal<T_Alloc>::Zero(flags32 what) -> void {
 }
 
 template <typename T_Alloc>
-auto Big_Decimal<T_Alloc>::SetBits64(u64 value) -> void {
+auto BigDecimal<T_Alloc>::set_bits_64(u64 value) -> void {
     i32 n_src_bits = BitScanReverse<u64>(value) + 1;
     if (n_src_bits == 0) n_src_bits = 1;
     i32 n_src_bytes = DivCeil(n_src_bits, 8);
-    i32 n_seg_bytes = sizeof(Big_Dec_Seg);
+    i32 n_chunk_bytes = sizeof(ChunkBits);
 
-    Length = 1;
-    Seg_List *seg = &Data;
+    length = 1;
+    ChunkList *chunk = &data;
 
-    i32 n_grab_bytes = n_src_bytes <= n_seg_bytes ? n_src_bytes : n_seg_bytes;
+    i32 n_grab_bytes = n_src_bytes <= n_chunk_bytes ? n_src_bytes : n_chunk_bytes;
     i32 n_grab_bits = n_grab_bytes * 8;
     i32 n_bytes_remaining = n_src_bytes - n_grab_bytes;
 
     i32 offset = 0;
     u64 mask = GetMaskBottomN<u64>(n_grab_bits);
-    seg->Value = value & mask;
+    chunk->value = value & mask;
 
     for ( ; n_bytes_remaining > 0 ; n_bytes_remaining -= n_grab_bytes ) {
         offset += n_grab_bits;
@@ -1853,12 +1793,12 @@ auto Big_Decimal<T_Alloc>::SetBits64(u64 value) -> void {
         }
         mask = GetMaskBottomN<u64>(n_grab_bits);
         mask <<= offset;
-        seg = ExtendLength();
+        chunk = extend_length();
         HardAssert(offset < 64 && offset >=0);
-        seg->Value = (value & mask) >> offset;
+        chunk->value = (value & mask) >> offset;
     }
 
-    HardAssert(this->IsNormalizedInteger());
+    HardAssert(this->is_normalized_integer());
     return;
 }
 
@@ -1870,14 +1810,14 @@ auto Big_Decimal<T_Alloc>::SetBits64(u64 value) -> void {
  */
 template <typename T_Alloc>
 template<typename T_Slot>
-auto Big_Decimal<T_Alloc>::SetBitsArray(T_Slot *vals, u32 count) -> void {
+auto BigDecimal<T_Alloc>::set_bits_array(T_Slot *vals, u32 count) -> void {
 
-    using T_Seg = Big_Dec_Seg;
+    using T_Chunk = ChunkBits;
 
     i32 slot_bytes = sizeof(T_Slot);
-    i32 seg_bytes= sizeof(T_Seg);
-    i32 segs_per_slot = slot_bytes / seg_bytes;
-    i32 slots_per_seg = seg_bytes/ slot_bytes;
+    i32 chunk_bytes= sizeof(T_Chunk);
+    i32 chunks_per_slot = slot_bytes / chunk_bytes;
+    i32 slots_per_chunk = chunk_bytes/ slot_bytes;
 
     T_Slot *last = vals + count - 1;
     for (i32 i = 0 ; i < count-1 ; ++i) {
@@ -1894,90 +1834,90 @@ auto Big_Decimal<T_Alloc>::SetBitsArray(T_Slot *vals, u32 count) -> void {
 
     i32 bytes_total = slot_bytes * (slots_total-1) + top_bytes;
 
-    i32 segs_total = (bytes_total + seg_bytes - 1) / seg_bytes;
+    i32 chunks_total = (bytes_total + chunk_bytes - 1) / chunk_bytes;
 
-    Length = 1;
-    while (Length < segs_total) {
-        ExtendLength();
+    length = 1;
+    while (length < chunks_total) {
+        extend_length();
     }
 
-    Seg_List *seg = &Data;
-    for (i32 i = 0; i < Length ; ++i) {
-        seg->Value = 0;
-        seg = seg->Next;
+    ChunkList *chunk = &data;
+    for (i32 i = 0; i < length ; ++i) {
+        chunk->value = 0;
+        chunk = chunk->next;
     }
 
-    seg = &Data;
+    chunk = &data;
     T_Slot *slot = vals;
-    i32 seg_bits = seg_bytes * 8;
-    if (segs_per_slot) {
+    i32 chunk_bits = chunk_bytes * 8;
+    if (chunks_per_slot) {
         u32 offset = 0;
 
-        T_Seg base_mask = GetMaskBottomN<T_Seg>(seg_bits);
+        T_Chunk base_mask = GetMaskBottomN<T_Chunk>(chunk_bits);
 
         T_Slot mask = base_mask;
         for (i32 slot_idx = 0 ; slot_idx < slots_total-1 ; ++slot_idx){
             offset = 0;
             mask = base_mask;
-            for(i32 seg_idx = 0 ; seg_idx < segs_per_slot ; ++seg_idx) {
-                T_Slot seg_val = *slot & mask;
-                seg_val >>= offset;
-                seg->Value = seg_val;
+            for(i32 chunk_idx = 0 ; chunk_idx < chunks_per_slot ; ++chunk_idx) {
+                T_Slot chunk_val = *slot & mask;
+                chunk_val >>= offset;
+                chunk->value = chunk_val;
 
-                mask <<= seg_bits;
-                offset += seg_bits;
-                seg = seg->Next;
+                mask <<= chunk_bits;
+                offset += chunk_bits;
+                chunk = chunk->next;
             }
             ++slot;
         }
         offset = 0;
         mask = base_mask;
-        i32 top_segs = DivCeil(top_bytes, seg_bytes);
-        for(i32 seg_idx = 0 ; seg_idx < top_segs ; ++seg_idx) {
-            T_Slot seg_val = *slot & mask;
-            seg_val >>= offset;
-            seg->Value = seg_val;
+        i32 top_chunks = DivCeil(top_bytes, chunk_bytes);
+        for(i32 chunk_idx = 0 ; chunk_idx < top_chunks ; ++chunk_idx) {
+            T_Slot chunk_val = *slot & mask;
+            chunk_val >>= offset;
+            chunk->value = chunk_val;
 
-            mask <<= seg_bits;
-            offset += seg_bits;
-            seg = seg->Next;
+            mask <<= chunk_bits;
+            offset += chunk_bits;
+            chunk = chunk->next;
         }
     } else {
         i32 slot_bits = slot_bytes * 8;
-        T_Seg slot_val = 0x0;
-        T_Seg seg_val = 0x0;
+        T_Chunk slot_val = 0x0;
+        T_Chunk chunk_val = 0x0;
         i32 offset = 0;
-        for (i32 seg_idx = 0 ; seg_idx < Length-1 ; ++seg_idx) {
+        for (i32 chunk_idx = 0 ; chunk_idx < length-1 ; ++chunk_idx) {
             slot_val = 0x0;
-            seg_val = 0x0;
+            chunk_val = 0x0;
             offset = 0;
-            for (i32 slot_idx = 0 ; slot_idx < slots_per_seg ; ++slot_idx) {
+            for (i32 slot_idx = 0 ; slot_idx < slots_per_chunk ; ++slot_idx) {
                 slot_val = *slot;
                 slot_val <<= offset;
-                seg_val |= slot_val;
+                chunk_val |= slot_val;
 
                 offset += slot_bits;
                 ++slot;
             }
-            seg->Value = seg_val;
-            seg = seg->Next;
+            chunk->value = chunk_val;
+            chunk = chunk->next;
         }
-        i32 slots_left = slots_total - slots_per_seg * (Length-1);
-        seg_val = 0x0;
+        i32 slots_left = slots_total - slots_per_chunk * (length-1);
+        chunk_val = 0x0;
         offset = 0;
         for (i32 slot_idx = 0 ; slot_idx < slots_left ; ++slot_idx) {
             slot_val = *slot;
             slot_val <<= offset;
-            seg_val |= slot_val;
+            chunk_val |= slot_val;
 
             offset += slot_bits;
             ++slot;
         }
-        seg->Value = seg_val;
-        seg = seg->Next;
+        chunk->value = chunk_val;
+        chunk = chunk->next;
     }
 
-    HardAssert(this->IsNormalizedInteger());
+    HardAssert(this->is_normalized_integer());
 };
 
 
@@ -1987,12 +1927,12 @@ auto Big_Decimal<T_Alloc>::SetBitsArray(T_Slot *vals, u32 count) -> void {
 **/
 template <typename T_Alloc>
 template <std::integral T_Src>
-auto Big_Decimal<T_Alloc>::Set(T_Src Value, bool IsNegative, i32 Exponent)  -> Big_Decimal<T_Alloc>& {
-    this->SetBits64(Value);
+auto BigDecimal<T_Alloc>::set(T_Src Value, bool IsNegative, i32 Exponent)  -> BigDecimal<T_Alloc>& {
+    this->set_bits_64(Value);
     this->IsNegative = IsNegative;
     this->Exponent = Exponent;
 
-    HardAssert(IsNormalizedInteger());
+    HardAssert(is_normalized_integer());
     return *this;
 }
 
@@ -2002,12 +1942,12 @@ auto Big_Decimal<T_Alloc>::Set(T_Src Value, bool IsNegative, i32 Exponent)  -> B
 **/
 template <typename T_Alloc>
 template <std::integral T_Slot>
-auto Big_Decimal<T_Alloc>::Set(T_Slot *ValArray, u32 ValCount, bool IsNegative/* =false */, i32 Exponent /* =0 */) -> Big_Decimal& {
-    SetBitsArray(ValArray, ValCount);
+auto BigDecimal<T_Alloc>::set(T_Slot *ValArray, u32 ValCount, bool IsNegative/* =false */, i32 Exponent /* =0 */) -> BigDecimal& {
+    set_bits_array(ValArray, ValCount);
     this->IsNegative = IsNegative;
     this->Exponent = Exponent;
 
-    HardAssert(IsNormalizedInteger());
+    HardAssert(is_normalized_integer());
 
     return *this;
 }
@@ -2015,8 +1955,8 @@ auto Big_Decimal<T_Alloc>::Set(T_Slot *ValArray, u32 ValCount, bool IsNegative/*
 
 //TODO(##2024 07 04):Support NAN (e=128, mantissa != 0)
 template <typename T_Alloc>
-auto Big_Decimal<T_Alloc>::SetFloat(real32 Val) -> void {
-    this->Zero();
+auto BigDecimal<T_Alloc>::set_float(real32 Val) -> void {
+    this->zero();
     this->IsNegative = Sign(Val);
     this->Exponent = Exponent32(Val);
     bool Denormalized = IsDenormalized(Val);
@@ -2026,16 +1966,16 @@ auto Big_Decimal<T_Alloc>::SetFloat(real32 Val) -> void {
         Exponent -= 22-BitScanReverse32(Mantissa);
     }
 
-    u32 seg_width = Big_Dec_Seg_Width;
-    SetBits64(Mantissa);
-    this->Normalize(); //NOTE(ArokhSlade##2024 10 18): truncate trailing zeros
+    u32 chunk_width = CHUNK_WIDTH;
+    set_bits_64(Mantissa);
+    this->normalize(); //NOTE(ArokhSlade##2024 10 18): truncate trailing zeros
 }
 
 //TODO(##2024 07 04):Support NAN (e=128, mantissa != 0)
 template <typename T_Alloc>
-auto Big_Decimal<T_Alloc>::SetDouble(f64 Val) -> void {
+auto BigDecimal<T_Alloc>::set_double(f64 Val) -> void {
 
-    this->Zero();
+    this->zero();
     this->IsNegative = Sign(Val);
     this->Exponent = Exponent64(Val);
     bool Denormalized = IsDenormalized(Val);
@@ -2044,29 +1984,29 @@ auto Big_Decimal<T_Alloc>::SetDouble(f64 Val) -> void {
     if (Denormalized && Mantissa != 0) {
         Exponent -= DOUBLE_PRECISION-2-BitScanReverse<u64>(Mantissa);
     }
-    SetBits64(Mantissa);
-    this->Normalize();
+    set_bits_64(Mantissa);
+    this->normalize();
 }
 
 template <typename T_Alloc>
-auto Big_Decimal<T_Alloc>::InitializeContext (const T_Alloc& ctx_alloc) -> void {
-    using BigDec = Big_Decimal<T_Alloc>;
+auto BigDecimal<T_Alloc>::initialize_context (const T_Alloc& ctx_alloc) -> void {
+    using BigDec = BigDecimal<T_Alloc>;
 
     HardAssert(!s_is_context_initialized);
     BigDec::s_ctx_alloc = ctx_alloc;
-    BigDec::s_chunk_alloc = Chunk_Alloc{ctx_alloc};
-    BigDec::s_link_alloc = Link_Alloc{BigDec::s_chunk_alloc};
+    BigDec::s_chunk_alloc = ChunkAlloc{ctx_alloc};
+    BigDec::s_link_alloc = LinkAlloc{BigDec::s_chunk_alloc};
 
     for (i32 i = 0 ;  i < TEMPORARIES_COUNT ; ++i) {
-//        new(s_all_temporaries_ptrs[i]) BigDec{Special_Constants::BELONGS_TO_CONTEXT, s_chunk_alloc};
-        s_all_temporaries_ptrs[i]->Initialize(s_chunk_alloc);
+//        new(s_all_temporaries_ptrs[i]) BigDec{SpecialConstants::BELONGS_TO_CONTEXT, s_chunk_alloc};
+        s_all_temporaries_ptrs[i]->initialize(s_chunk_alloc);
     }
 
-    temp_one.Set(1);
-    temp_ten.Set(10);
-    temp_pow_10.Set(1);
-    temp_parse_frac.Set(1);
-    Big_Decimal<T_Alloc>::s_is_context_initialized = true;
+    temp_one.set(1);
+    temp_ten.set(10);
+    temp_pow_10.set(1);
+    temp_parse_frac.set(1);
+    BigDecimal<T_Alloc>::s_is_context_initialized = true;
 }
 
 
@@ -2079,56 +2019,56 @@ auto Big_Decimal<T_Alloc>::InitializeContext (const T_Alloc& ctx_alloc) -> void 
  */
 template <typename T_Alloc>
 template <typename T_Slot>
-auto Big_Decimal<T_Alloc>::CopyBitsTo(T_Slot *slots, i32 slot_count) -> void {
+auto BigDecimal<T_Alloc>::copy_bits_to(T_Slot *slots, i32 slot_count) -> void {
 
-    i32 bit_count = CountBits();
+    i32 bit_count = count_bits();
     i32 bits_per_slot = sizeof(T_Slot) * 8;
     HardAssert(bit_count <= bits_per_slot * slot_count);
-    i32 bits_per_seg = Big_Dec_Seg_Width;
-    i32 segs_per_slot = bits_per_slot / bits_per_seg;
-    i32 slots_per_seg = bits_per_seg / bits_per_slot;
+    i32 bits_per_chunk = CHUNK_WIDTH;
+    i32 chunks_per_slot = bits_per_slot / bits_per_chunk;
+    i32 slots_per_chunk = bits_per_chunk / bits_per_slot;
 
-    Seg_List *seg = &Data;
+    ChunkList *chunk = &data;
     T_Slot *slot = slots;
-    if (segs_per_slot) {
-        i32 seg_idx = 0;
+    if (chunks_per_slot) {
+        i32 chunk_idx = 0;
         i32 offset = 0;
-        for (  ; seg_idx  + segs_per_slot <= Length ; seg_idx  += segs_per_slot ) {
-            for ( i32 slot_idx = 0 ; slot_idx < segs_per_slot ; ++slot_idx ) {
-                *slot |= (T_Slot)seg->Value << offset;
-                offset += bits_per_seg;
-                seg = seg->Next;
+        for (  ; chunk_idx  + chunks_per_slot <= length ; chunk_idx  += chunks_per_slot ) {
+            for ( i32 slot_idx = 0 ; slot_idx < chunks_per_slot ; ++slot_idx ) {
+                *slot |= (T_Slot)chunk->value << offset;
+                offset += bits_per_chunk;
+                chunk = chunk->next;
             }
             offset = 0;
             ++slot;
         }
         //handle remainder
-        for ( ; seg_idx < Length ; ++seg_idx ) {
-            *slot |= (T_Slot)seg->Value << offset;
-            offset += bits_per_seg;
-            seg = seg->Next;
+        for ( ; chunk_idx < length ; ++chunk_idx ) {
+            *slot |= (T_Slot)chunk->value << offset;
+            offset += bits_per_chunk;
+            chunk = chunk->next;
 
         }
-    } else { //segs are bigger than slots
-        i32 seg_idx = 0 ;
-        Big_Dec_Seg seg_mask = 0x0;
+    } else { //chunks are bigger than slots
+        i32 chunk_idx = 0 ;
+        ChunkBits chunk_mask = 0x0;
         i32 total_slot_idx = 0;
-        for ( ; seg_idx < Length ; ++seg_idx ) {
-            seg_mask = GetMaskBottomN<Big_Dec_Seg>(bits_per_seg);
+        for ( ; chunk_idx < length ; ++chunk_idx ) {
+            chunk_mask = GetMaskBottomN<ChunkBits>(bits_per_chunk);
             HardAssert(total_slot_idx < slot_count);
             i32 offset = 0;
-            for ( i32 slot_idx = 0 ; slot_idx < slots_per_seg ; ++slot_idx) {
-                Big_Dec_Seg piece = seg->Value & seg_mask;
-                piece >>= offset; //NOTE(ArokhSlade ## 2024 10 06): offset < bit width b/c segs_per_slot==0
+            for ( i32 slot_idx = 0 ; slot_idx < slots_per_chunk ; ++slot_idx) {
+                ChunkBits piece = chunk->value & chunk_mask;
+                piece >>= offset; //NOTE(ArokhSlade ## 2024 10 06): offset < bit width b/c chunks_per_slot==0
                 *slot = piece;
-                seg_mask <<= bits_per_slot;
+                chunk_mask <<= bits_per_slot;
                 ++slot;
                 if (++total_slot_idx == slot_count) {
                     break;
                 }
                 offset += bits_per_slot;
             }
-            seg = seg->Next;
+            chunk = chunk->next;
         }
     }
 
@@ -2137,13 +2077,13 @@ auto Big_Decimal<T_Alloc>::CopyBitsTo(T_Slot *slots, i32 slot_count) -> void {
 
 //TODO(##2024 07 04): are there faster ways to compute the mantissa than calling Round()?
 template <typename T_Alloc>
-auto Big_Decimal<T_Alloc>::ToFloat() -> f32 {
+auto BigDecimal<T_Alloc>::to_float() -> f32 {
 
-    if (this->IsZero()) {
+    if (this->is_zero()) {
         return 0.f;
     }
 
-    this->CopyTo(&Big_Decimal::temp_to_float);
+    this->copy_to(&BigDecimal::temp_to_float);
     bool Sign = temp_to_float.IsNegative;
 
     int MantissaBitCount = 24;
@@ -2158,11 +2098,11 @@ auto Big_Decimal<T_Alloc>::ToFloat() -> f32 {
         MantissaBitCount = 150+ResultExponent;
     }
 
-    temp_to_float.RoundToNSignificantBits(MantissaBitCount); //Exponent may change
+    temp_to_float.round_to_n_significant_bits(MantissaBitCount); //Exponent may change
 
     ResultExponent = temp_to_float.Exponent;
 
-    if (temp_to_float.IsZero()) {
+    if (temp_to_float.is_zero()) {
         return Sign ? -0.f : 0.f;
     }
     if (ResultExponent > 127)
@@ -2183,16 +2123,16 @@ auto Big_Decimal<T_Alloc>::ToFloat() -> f32 {
 
 
 
-    i32 chunks_required = (FLOAT_PRECISION + Big_Dec_Seg_Width - 1) / Big_Dec_Seg_Width;
-    HardAssert(temp_to_float.Length <= chunks_required);
+    i32 chunks_required = (FLOAT_PRECISION + CHUNK_WIDTH - 1) / CHUNK_WIDTH;
+    HardAssert(temp_to_float.length <= chunks_required);
 
-    i32 BitCount = temp_to_float.CountBits(); //NOTE(ArokhSlade##2024 09 25): after rounding, value is normalized, i.e. trailing zeroes are chopped off.
+    i32 BitCount = temp_to_float.count_bits(); //NOTE(ArokhSlade##2024 09 25): after rounding, value is normalized, i.e. trailing zeroes are chopped off.
     HardAssert (MantissaBitCount >= BitCount);
     i32 ShiftAmount = MantissaBitCount - BitCount; //NOTE(ArokhSlade##2024 09 25): reintroduce trailing zeroes
 
     u32 Mantissa = 0;
-    temp_to_float.ShiftLeft(ShiftAmount);
-    temp_to_float.CopyBitsTo(&Mantissa, 1);
+    temp_to_float.shift_left(ShiftAmount);
+    temp_to_float.copy_bits_to(&Mantissa, 1);
     Mantissa &= MantissaMask;
 
     // IEEE-754 float32 format
@@ -2202,7 +2142,7 @@ auto Big_Decimal<T_Alloc>::ToFloat() -> f32 {
 
     u32 Result = Sign << 31;
     u32 Bias = 127;
-    ResultExponent = Denormalized || this->IsZero() ? 0 : ResultExponent + Bias;
+    ResultExponent = Denormalized || this->is_zero() ? 0 : ResultExponent + Bias;
     Result |= ResultExponent << 23;
     Result |= Mantissa;
 
@@ -2210,15 +2150,15 @@ auto Big_Decimal<T_Alloc>::ToFloat() -> f32 {
 }
 
 
-//TODO(##2024 10 18): (copied from ToFloat) are there faster ways to compute the mantissa than calling Round()?
+//TODO(##2024 10 18): (copied from to_float) are there faster ways to compute the mantissa than calling Round()?
 template <typename T_Alloc>
-auto Big_Decimal<T_Alloc>::ToDouble() -> f64 {
+auto BigDecimal<T_Alloc>::to_double() -> f64 {
 
-    if (this->IsZero()) {
+    if (this->is_zero()) {
         return 0.f;
     }
 
-    this->CopyTo(&Big_Decimal::temp_to_float);
+    this->copy_to(&BigDecimal::temp_to_float);
     bool Sign = temp_to_float.IsNegative;
 
     int MantissaBitCount = DOUBLE_PRECISION;
@@ -2233,11 +2173,11 @@ auto Big_Decimal<T_Alloc>::ToDouble() -> f64 {
         MantissaBitCount = (-MinExponent64)+ResultExponent;
     }
 
-    temp_to_float.RoundToNSignificantBits(MantissaBitCount); //Exponent may change
+    temp_to_float.round_to_n_significant_bits(MantissaBitCount); //Exponent may change
 
     ResultExponent = temp_to_float.Exponent;
 
-    if (ResultExponent < (MinExponent64+1) /*|| temp_to_float.IsZero()*/) { //TODO(##2024 07 13):check IsZero?
+    if (ResultExponent < (MinExponent64+1) /*|| temp_to_float.is_zero()*/) { //TODO(##2024 07 13):check is_zero?
         return Sign ? -0.f : 0.f;
     }
     if (ResultExponent > FloatBias64)
@@ -2258,17 +2198,17 @@ auto Big_Decimal<T_Alloc>::ToDouble() -> f64 {
 
 
 
-    i32 chunks_required = (DOUBLE_PRECISION + Big_Dec_Seg_Width - 1) / Big_Dec_Seg_Width;
-    HardAssert(temp_to_float.Length <= chunks_required);
+    i32 chunks_required = (DOUBLE_PRECISION + CHUNK_WIDTH - 1) / CHUNK_WIDTH;
+    HardAssert(temp_to_float.length <= chunks_required);
 
-    i32 BitCount = temp_to_float.CountBits(); //NOTE(ArokhSlade##2024 09 25): after rounding, value is normalized, i.e. trailing zeroes are chopped off.
+    i32 BitCount = temp_to_float.count_bits(); //NOTE(ArokhSlade##2024 09 25): after rounding, value is normalized, i.e. trailing zeroes are chopped off.
     HardAssert (MantissaBitCount >= BitCount);
     i32 ShiftAmount = MantissaBitCount - BitCount; //NOTE(ArokhSlade##2024 09 25): reintroduce trailing zeroes
 
     u64 Mantissa = 0;
 
-    temp_to_float.ShiftLeft(ShiftAmount);
-    temp_to_float.CopyBitsTo(&Mantissa, 1);
+    temp_to_float.shift_left(ShiftAmount);
+    temp_to_float.copy_bits_to(&Mantissa, 1);
     Mantissa &= MantissaMask;
 
     // IEEE-754 float64 format
@@ -2278,7 +2218,7 @@ auto Big_Decimal<T_Alloc>::ToDouble() -> f64 {
 
     u64 ResultBits = Sign << 63;
     u64 Bias = FloatBias64;
-    ResultExponent = Denormalized || this->IsZero() ? 0 : ResultExponent + Bias;
+    ResultExponent = Denormalized || this->is_zero() ? 0 : ResultExponent + Bias;
     ResultBits = ResultExponent;
     ResultBits <<= DOUBLE_PRECISION-1;
     ResultBits |= Mantissa;
@@ -2286,26 +2226,26 @@ auto Big_Decimal<T_Alloc>::ToDouble() -> f64 {
     return Result;
 }
 
-typedef Big_Decimal<std::allocator<Big_Dec_Seg>> Big_Dec_Std;
+typedef BigDecimal<std::allocator<ChunkBits>> Big_Dec_Std;
 
 
 
 
 template <typename T_Alloc>
-Big_Decimal<T_Alloc>::operator std::string(){
+BigDecimal<T_Alloc>::operator std::string(){
     std::string Result;
 
     Result += IsNegative ? '-' : '+';
-    Seg_List *Cur = GetHead();
-    i32 UnusedChunks = m_chunks_capacity - Length;
-    constexpr i32 width = sizeof(Big_Dec_Seg) * 2;
+    ChunkList *Cur = get_head();
+    i32 UnusedChunks = m_chunks_capacity - length;
+    constexpr i32 width = sizeof(ChunkBits) * 2;
     char HexDigits[width+1] = "";
 
 //    i32 UnusedChunksFieldSize = 2 + ( UnusedChunks > 1 ? UnusedChunks : 1);
-//    i32 BufSize = 1+Length*9+2+UnusedChunksFieldSize+1;
+//    i32 BufSize = 1+length*9+2+UnusedChunksFieldSize+1;
 
-    for (i32 Idx = 0 ; Idx < Length; ++Idx, Cur = Cur->Prev) {
-        stbsp_sprintf(HexDigits, "%.*llx ", width, Cur->Value);
+    for (i32 Idx = 0 ; Idx < length; ++Idx, Cur = Cur->prev) {
+        stbsp_sprintf(HexDigits, "%.*llx ", width, Cur->value);
         Result += HexDigits;
     }
 
@@ -2321,32 +2261,32 @@ Big_Decimal<T_Alloc>::operator std::string(){
     return Result;
 }
 
-//template Big_Decimal<Arena_Allocator<Big_Dec_Seg>>::operator std::string(); //explicit instantiation so it's available in debugger
+//template BigDecimal<Arena_Allocator<ChunkBits>>::operator std::string(); //explicit instantiation so it's available in debugger
 
 
 template <typename T_Alloc>
-std::ostream& operator<<(std::ostream& Out, Big_Decimal<T_Alloc>& big_decimal) {
+std::ostream& operator<<(std::ostream& Out, BigDecimal<T_Alloc>& big_decimal) {
     return Out << std::string(big_decimal);
 }
 
-template <typename T_Seg_Bits_Alloc, typename T_Char_Alloc>
-auto to_chars(Big_Decimal<T_Seg_Bits_Alloc>& A, T_Char_Alloc& string_alloc) -> char* {
+template <typename T_ChunkBitsAlloc, typename T_CharAlloc>
+auto to_chars(BigDecimal<T_ChunkBitsAlloc>& A, T_CharAlloc& string_alloc) -> char* {
     char Sign = A.IsNegative ? '-' : '+';
-    typename Big_Decimal<T_Seg_Bits_Alloc>::Seg_List *CurChunk = A.GetHead();
-    i32 UnusedChunks = A.m_chunks_capacity - A.Length;
+    typename BigDecimal<T_ChunkBitsAlloc>::ChunkList *CurChunk = A.get_head();
+    i32 UnusedChunks = A.m_chunks_capacity - A.length;
     char HexDigits[11] = "";
 
     i32 NumSize = UnusedChunks > 0 ? Log10I(UnusedChunks ) : 1;
     i32 UnusedChunksFieldSize = 2 + NumSize + 1;
 
-    i32 BufSize = 1+A.Length*9+2+UnusedChunksFieldSize+1;
-    char *Buf = std::allocator_traits<T_Char_Alloc>::allocate(string_alloc, BufSize);
+    i32 BufSize = 1+A.length*9+2+UnusedChunksFieldSize+1;
+    char *Buf = std::allocator_traits<T_CharAlloc>::allocate(string_alloc, BufSize);
 
     char *BufPos=Buf;
     *BufPos++ = Sign;
 
-    for (i32 Idx = 0 ; Idx < A.Length; ++Idx, CurChunk = CurChunk->Prev) {
-        stbsp_sprintf(BufPos, "%.8x ", CurChunk->Value);
+    for (i32 Idx = 0 ; Idx < A.length; ++Idx, CurChunk = CurChunk->prev) {
+        stbsp_sprintf(BufPos, "%.8x ", CurChunk->value);
         BufPos +=9;
     }
 
@@ -2358,48 +2298,7 @@ auto to_chars(Big_Decimal<T_Seg_Bits_Alloc>& A, T_Char_Alloc& string_alloc) -> c
     return Buf;
 }
 
-#if OLD_FullMulN
-template <typename uN>
-void FullMulN(uN A, uN B, uN C[2]) {
-    i32 HalfSize = 4 * sizeof(uN);
-    uN HalfMask = (uN)-1 >> HalfSize;
-    uN LoA = A & HalfMask ;
-    uN HiA = A >> HalfSize;
-    uN LoB = B & HalfMask ;
-    uN HiB = B >> HalfSize;
-    uN HiC = HiA*HiB;
-    uN MidC1 = HiA * LoB;
-    uN MidC2 = LoA * HiB;
-    uN LoC = LoA * LoB;
 
-    uN MAX = std::numeric_limits<uN>::max();
-
-    auto ComputeAdditionOverflow = [MAX](uN A_, uN B_) -> uN {
-        uN Result = 0;
-        uN Capacity = MAX - A_;
-        Result = Capacity < B_ ? B_-(Capacity+1) : 0;
-        return Result;
-    };
-
-    uN Carry_ = ComputeAdditionOverflow(LoC, MidC1 << HalfSize);
-    C[0] = LoC + (MidC1<<HalfSize);
-    uN Carry_2 = ComputeAdditionOverflow(C[0], MidC2 << HalfSize);
-
-    C[0] += (MidC2<<HalfSize);
-    HardAssert(ComputeAdditionOverflow(Carry_, Carry_2) == 0);
-
-    C[1] = Carry_ + Carry_2;
-    HardAssert(ComputeAdditionOverflow(C[1],MidC1>>HalfSize) == 0);
-
-    C[1]+=MidC1>>HalfSize;
-    HardAssert(ComputeAdditionOverflow(C[1],MidC2>>HalfSize) == 0);
-
-    C[1]+=MidC2>>HalfSize;
-    HardAssert(ComputeAdditionOverflow(C[1],HiC<<HalfSize) == 0);
-
-    C[1] += HiC;
-}
-#else
 template <typename uN>
 void FullMulN(uN A, uN B, uN C[2]) {
 
@@ -2437,6 +2336,5 @@ void FullMulN(uN A, uN B, uN C[2]) {
     C[0] = c10;
     C[1] = c32;
 }
-#endif
 
 #endif //G_BIG_DECIMAL_UTILITY_H
