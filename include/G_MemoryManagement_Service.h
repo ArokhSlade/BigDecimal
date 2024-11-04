@@ -162,7 +162,7 @@ struct ArenaAllocMeta {
 
 /**
  *  \brief      ref-counted arena allocator (multiple allocators can be tied to the same arena, thanks to their common meta data pointer
- *  \warning    careful with using placement-new: in order ref-counting to work, you can't placement-new over an existing allocators address. use operator= instead
+ *  \warning    careful with using placement-new: in order for ref-counting to work, you can't placement-new over an existing allocators address. use operator= instead
  **/
 template<typename T>
 struct ArenaAlloc{

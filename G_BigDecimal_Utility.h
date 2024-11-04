@@ -11,7 +11,11 @@
 #include <type_traits> //enable_if, is_integral
 #include <concepts> //unsigned_integral
 
-typedef u64 ChunkBits;
+namespace BigDecimal_ {
+	typedef u64 ChunkBits;
+}
+
+using ChunkBits = BigDecimal_::ChunkBits;
 const ChunkBits MAX_CHUNK_VAL = std::numeric_limits<ChunkBits>::max(); //TODO(ArokhSlade##2024 09 22): put this into BigDecimal's namespace
 const i32 CHUNK_WIDTH = sizeof(ChunkBits) * 8; ////TODO(ArokhSlade##2024 09 22): put this into BigDecimal's namespace
 
@@ -26,7 +30,7 @@ auto to_chars(BigDecimal<T_ChunkBitsAlloc>& A, T_CharAlloc& char_alloc) -> char 
    \brief BigDecimal can be used to represent integers and floats.
        \n Functions like add_fractional and from_string will return values in a float-like format.
        \n "float-like format" means that the value fulfills .is_normalized_fractional():
-       \n the bit sequence starts with 1 and ends with 1 and is to be interpreted as 1.xyz...1x2^Exponent
+       \n the bit sequence starts with 1 and ends with 1 and is to be interpreted as 1.xyz...1x2^exponent
        \n Functions like add_integer_signed and the Shift functions and parse_integer treat the bit sequence at face value
        \n i.e. as unsigned integer (the sign is stored in a separate bool)
        \n they ignore the exponent and may return values with trailing zeros,
@@ -98,22 +102,22 @@ struct BigDecimal {
 
     ChunkAlloc m_chunk_alloc;
     bool is_alive;
-    bool was_divided_by_zero=false;
+    bool was_divided_by_zero = false;
 
     using ChunkAllocTraits = std::allocator_traits<ChunkAlloc>;
 
     i32 length = 1;
 
-    bool IsNegative = false;
-    i32 Exponent = 0;
+    bool is_negative = false;
+    i32 exponent = 0;
 
     u32 m_chunks_capacity = 1;
     struct ChunkList {
         ChunkBits value;
         ChunkList *next,
-                 *prev;
+                  *prev;
     } data = {};
-    //TODO(##2024 06 15): replace chunk list with something more performant and dynamic like dynamic arrays or a container template
+    //TODO(##2024 06 15): replace chunk list with dynamic arrays or a container template?
 
     ChunkList *sentinel = &data;
 
@@ -153,9 +157,9 @@ struct BigDecimal {
     static auto from_string(char *Str, BigDecimal *Dst = nullptr) -> bool;
 
     template <std::integral T_Src=u32>
-    auto set(T_Src Val,  bool IsNegative=false, i32 Exponent=0) -> BigDecimal&;
+    auto set(T_Src Val,  bool is_negative=false, i32 exponent=0) -> BigDecimal&;
     template <std::integral T_Slot=u32>
-    auto set(T_Slot *ValArray, u32 ValCount, bool IsNegative=false, i32 Exponent=0) -> BigDecimal&;
+    auto set(T_Slot *ValArray, u32 ValCount, bool is_negative=false, i32 exponent=0) -> BigDecimal&;
 
     auto set_float(real32 Val) -> void;
     auto set_double(f64 Val) -> void;
@@ -294,7 +298,7 @@ struct BigDecimal {
 
     //TODO(ArokhSlade##2024 09 29): redundant? why not ambiguous? is it ever called?
     BigDecimal(T_Alloc& allocator)
-    : m_chunk_alloc{ChunkAlloc{allocator}}, IsNegative{false},data{.value{0}},
+    : m_chunk_alloc{ChunkAlloc{allocator}}, is_negative{false},data{.value{0}},
       is_alive{true}
     {
         HardAssert(s_is_context_initialized);
@@ -303,9 +307,9 @@ struct BigDecimal {
 
 
     template <std::integral T_Src = u32>
-    BigDecimal(const T_Alloc& allocator, T_Src Value_=0, bool IsNegative_=false, i32 Exponent_=0)
-    : m_chunk_alloc{ChunkAlloc{allocator}}, IsNegative{IsNegative_},
-      Exponent{Exponent_}, is_alive{true}
+    BigDecimal(const T_Alloc& allocator, T_Src Value_=0, bool is_negative_=false, i32 exponent_=0)
+    : m_chunk_alloc{ChunkAlloc{allocator}}, is_negative{is_negative_},
+      exponent{exponent_}, is_alive{true}
     {
         HardAssert(s_is_context_initialized);
         if (is_context_variable()) add_context_link();
@@ -325,16 +329,16 @@ struct BigDecimal {
     }
 
     template <std::integral T_Src = u32>
-    BigDecimal(const T_Alloc& allocator, T_Src *Values, u32 Count, bool IsNegative_=false, i32 Exponent_=0)
-    : BigDecimal{allocator, 0, IsNegative_, Exponent_}
+    BigDecimal(const T_Alloc& allocator, T_Src *Values, u32 Count, bool is_negative_=false, i32 exponent_=0)
+    : BigDecimal{allocator, 0, is_negative_, exponent_}
     {
         set_bits_array<T_Src>(Values, Count);
         HardAssert(is_normalized_integer());
     }
 
     template <std::integral T_Src = u32>
-    BigDecimal(T_Src Value_=0, bool IsNegative_=false, i32 Exponent_=0)
-    : BigDecimal{get_ctx_alloc(), Value_, IsNegative_, Exponent_}
+    BigDecimal(T_Src Value_=0, bool is_negative_=false, i32 exponent_=0)
+    : BigDecimal{get_ctx_alloc(), Value_, is_negative_, exponent_}
     {}
 
     BigDecimal(f32 Value_)
@@ -346,15 +350,15 @@ struct BigDecimal {
     {}
 
     template<std::integral T_Src=u32>
-    BigDecimal(T_Src *Values, u32 ValuesCount, bool IsNegative_=false, i32 Exponent_=0)
-    : BigDecimal{get_ctx_alloc(),Values, ValuesCount, IsNegative_, Exponent_}
+    BigDecimal(T_Src *Values, u32 ValuesCount, bool is_negative_=false, i32 exponent_=0)
+    : BigDecimal{get_ctx_alloc(),Values, ValuesCount, is_negative_, exponent_}
     {}
 
 
 
     BigDecimal(T_Alloc& allocator, BigDecimal& Other)
-    : m_chunk_alloc{ChunkAlloc{allocator}}, IsNegative{Other.IsNegative},
-      Exponent{Other.Exponent}, is_alive{true}
+    : m_chunk_alloc{ChunkAlloc{allocator}}, is_negative{Other.is_negative},
+      exponent{Other.exponent}, is_alive{true}
     {
         HardAssert(s_is_context_initialized);
         Other.copy_to(this, COPY_DIGITS);
@@ -437,18 +441,18 @@ struct BigDecimal {
     //then later, when initialize_context() is called,
     //these variables get re-assigned, setting their allocator and incrementing the context variables counter
     BigDecimal(SpecialConstants must_belong_to_context, u32 value=0,
-               bool IsNegative_=false, i32 Exponent_=0)
+               bool is_negative_=false, i32 exponent_=0)
     : m_chunk_alloc{}, data{.value{value}},
-      IsNegative{IsNegative_}, Exponent{Exponent_},
+      is_negative{is_negative_}, exponent{exponent_},
       is_alive{false} //NOTE()ArokhSlade##2024 08 29):allocator for static temporaries not known at startup
     {
         HardAssert(must_belong_to_context == SpecialConstants::BELONGS_TO_CONTEXT);
     }
 
     BigDecimal(SpecialConstants must_belong_to_context, ChunkAlloc& chunk_alloc, u32 value=0,
-               bool IsNegative_=false, i32 Exponent_=0)
+               bool is_negative_=false, i32 exponent_=0)
     : m_chunk_alloc{chunk_alloc}, data{.value{value}},
-      IsNegative{IsNegative_}, Exponent{Exponent_},
+      is_negative{is_negative_}, exponent{exponent_},
       is_alive{true} //NOTE(ArokhSlade##2024 08 29): allocator for static temporaries not known at startup
     {
         HardAssert(must_belong_to_context == SpecialConstants::BELONGS_TO_CONTEXT);
@@ -466,7 +470,7 @@ struct BigDecimal {
 template <typename T_Alloc>
 auto Str(BigDecimal<T_Alloc>& A, memory_arena *TempArena) -> char* {
 
-    char Sign = A.IsNegative ? '-' : '+';
+    char Sign = A.is_negative ? '-' : '+';
     typename BigDecimal<T_Alloc>::ChunkList *CurChunk = A.get_head();
     i32 UnusedChunks = A.m_chunks_capacity - A.length;
     char HexDigits[11] = "";
@@ -528,7 +532,7 @@ auto BigDecimal<T_Alloc>::parse_integer(char *Src, BigDecimal *Dst) -> bool {
         Pow10_.mul_integer(Ten_);
     }
 
-    Dst->Exponent = Dst->get_msb();
+    Dst->exponent = Dst->get_msb();
 
     return true;
 }
@@ -617,7 +621,7 @@ auto BigDecimal<T_Alloc>::from_string(char *DecStr, BigDecimal<T_Alloc> *Dst) ->
         Dst->add_fractional(*Frac);
     }
 
-    Dst->IsNegative = Neg;
+    Dst->is_negative = Neg;
 
     HardAssert(Dst->is_normalized_fractional());
 
@@ -627,7 +631,7 @@ auto BigDecimal<T_Alloc>::from_string(char *DecStr, BigDecimal<T_Alloc> *Dst) ->
 
 /**
  *  \brief  A.length == 1 && A.data.value == 0x0
- *  \n      Exponent does not matter. 0^0 is still zero
+ *  \n      exponent does not matter. 0^0 is still zero
 **/
 template <typename T_Alloc>
 auto BigDecimal<T_Alloc>::is_zero() -> bool {
@@ -841,13 +845,13 @@ auto BigDecimal<T_Alloc>::add_integer_signed (BigDecimal& B) -> void {
     HardAssert(this->is_normalized_integer());
 
     BigDecimal& A = *this;
-    if (A.IsNegative == B.IsNegative) {
+    if (A.is_negative == B.is_negative) {
         add_integer_unsigned(B);
-    } else if (A.IsNegative) {
+    } else if (A.is_negative) {
         A.neg();
         A.sub_integer_signed(B);
         A.neg();
-    } else { /* (B.IsNegative) */
+    } else { /* (B.is_negative) */
         B.neg();
         A.sub_integer_signed(B);
         B.neg();
@@ -939,8 +943,8 @@ template <typename T_Alloc>
 auto BigDecimal<T_Alloc>::copy_to(BigDecimal *Dst, flags32 Flags) -> void {
     HardAssert(Dst != nullptr);
 
-    if (IsSet(Flags, COPY_SIGN)) Dst->IsNegative = this->IsNegative;
-    if (IsSet(Flags, COPY_EXPONENT)) Dst->Exponent = this->Exponent;
+    if (IsSet(Flags, COPY_SIGN)) Dst->is_negative = this->is_negative;
+    if (IsSet(Flags, COPY_EXPONENT)) Dst->exponent = this->exponent;
 
 
     if (IsSet(Flags, COPY_DIGITS)) {
@@ -998,11 +1002,11 @@ template <typename T_Alloc>
 auto BigDecimal<T_Alloc>::less_than_integer_signed(BigDecimal<T_Alloc>& B) -> bool{
     BigDecimal<T_Alloc>& A = *this;
     bool Result = false;
-    if (A.IsNegative != B.IsNegative) {
-        Result = A.IsNegative;
+    if (A.is_negative != B.is_negative) {
+        Result = A.is_negative;
     } else {
-        Result = !A.IsNegative && A.less_than_integer_unsigned(B)
-               || A.IsNegative && B.less_than_integer_unsigned(A);
+        Result = !A.is_negative && A.less_than_integer_unsigned(B)
+               || A.is_negative && B.less_than_integer_unsigned(A);
     }
     return Result;
 }
@@ -1034,7 +1038,7 @@ auto BigDecimal<T_Alloc>::equals_integer(BigDecimal<T_Alloc> const& B) -> bool {
 
     BigDecimal<T_Alloc>& A = *this;
     bool all_equal = true;
-    all_equal &= A.IsNegative == B.IsNegative;
+    all_equal &= A.is_negative == B.is_negative;
     all_equal &= A.equal_bits(B);
 
     return all_equal;
@@ -1046,7 +1050,7 @@ auto BigDecimal<T_Alloc>::equals_fractional(BigDecimal<T_Alloc> const& B) -> boo
     BigDecimal<T_Alloc>& A = *this;
     bool all_equal = true;
     all_equal &= A.equals_integer(B);
-    all_equal &= A.Exponent == B.Exponent;
+    all_equal &= A.exponent == B.exponent;
 
     return all_equal;
 }
@@ -1165,11 +1169,11 @@ auto BigDecimal<T_Alloc>::sub_integer_signed (BigDecimal& B)-> void {
 
     BigDecimal& A = *this;
 
-    if (!A.IsNegative && !B.IsNegative) {
+    if (!A.is_negative && !B.is_negative) {
 
         A.sub_integer_unsigned(B);
 
-    } else if (A.IsNegative && B.IsNegative ) {
+    } else if (A.is_negative && B.is_negative ) {
 
         A.neg();
         B.neg();
@@ -1177,13 +1181,13 @@ auto BigDecimal<T_Alloc>::sub_integer_signed (BigDecimal& B)-> void {
         B.neg();
         A.neg();
 
-    } else if (A.IsNegative) {
+    } else if (A.is_negative) {
 
         A.neg();
         A.add_integer_unsigned(B);
         A.neg();
 
-    } else { /* (B.IsNegative) */
+    } else { /* (B.is_negative) */
 
         B.neg();
         A.add_integer_unsigned(B);
@@ -1388,7 +1392,7 @@ auto BigDecimal<T_Alloc>::mul_integer (BigDecimal& B)-> void {
 //        }
 	}
 
-	result.IsNegative = A.IsNegative != B.IsNegative;
+	result.is_negative = A.is_negative != B.is_negative;
 	result.copy_to(&A);
 
 	HardAssert(this->is_normalized_integer());
@@ -1481,7 +1485,7 @@ auto BigDecimal<T_Alloc>::round_to_n_significant_bits(i32 N) -> void {
     HardAssert(NewBitCount == N || NewBitCount == N+1);
     if (/* !this->is_zero()  &&*/ NewBitCount == N+1) { //TODO(##2024 07 13):count_bits returns 1 for zero. that's why we check for is_zero here. review!
         normalize();
-        ++Exponent;
+        ++exponent;
     }
     normalize();
 
@@ -1515,7 +1519,7 @@ auto div_integer(BigDecimal<T_Alloc>& A, BigDecimal<T_Alloc>& B, BigDecimal<T_Al
     T_Big_Decimal& Temp_ = T_Big_Decimal::temp_div_int_0;
     A.copy_to(&A_);
     B.copy_to(&B_);
-    A_.IsNegative = B_.IsNegative = false;
+    A_.is_negative = B_.is_negative = false;
 
 
     //Compute Integer Part
@@ -1555,7 +1559,7 @@ auto div_integer(BigDecimal<T_Alloc>& A, BigDecimal<T_Alloc>& B, BigDecimal<T_Al
     }
     else { IntegerPartDone = true; }
 
-    ResultInteger.Exponent = ResultInteger.count_bits() - 1;
+    ResultInteger.exponent = ResultInteger.count_bits() - 1;
 
     i32 DigitCountA = A_.count_bits();
     i32 RevDiff = DigitCountB-DigitCountA;
@@ -1595,7 +1599,7 @@ auto div_integer(BigDecimal<T_Alloc>& A, BigDecimal<T_Alloc>& B, BigDecimal<T_Al
         }
     }
 
-    ResultInteger.IsNegative = A.IsNegative && !B.IsNegative || !A.IsNegative && B.IsNegative;
+    ResultInteger.is_negative = A.is_negative && !B.is_negative || !A.is_negative && B.is_negative;
 
     return was_div_by_zero;
 }
@@ -1610,17 +1614,17 @@ auto BigDecimal<T_Alloc>::div_integer (BigDecimal& B, u32 MinFracPrecision) -> v
 
     ::div_integer(*this, B, temp_div_frac_int_part, temp_div_frac_frac_part, MinFracPrecision);
 
-    HardAssert(temp_div_frac_frac_part.is_zero() || temp_div_frac_frac_part.Exponent < 0 );
-    HardAssert(temp_div_frac_int_part.is_zero() || temp_div_frac_int_part.Exponent >=0);
+    HardAssert(temp_div_frac_frac_part.is_zero() || temp_div_frac_frac_part.exponent < 0 );
+    HardAssert(temp_div_frac_int_part.is_zero() || temp_div_frac_int_part.exponent >=0);
 
     temp_div_frac_int_part.copy_to(this, BigDecimal::COPY_DIGITS | BigDecimal::COPY_EXPONENT);
 
-    this->IsNegative = false;
+    this->is_negative = false;
 
-    HardAssert(!temp_div_frac_frac_part.IsNegative);
+    HardAssert(!temp_div_frac_frac_part.is_negative);
     this->add_fractional(temp_div_frac_frac_part);
 
-    this->IsNegative = temp_div_frac_int_part.IsNegative;
+    this->is_negative = temp_div_frac_int_part.is_negative;
 
     HardAssert(this->is_normalized_integer());
 
@@ -1630,7 +1634,7 @@ auto BigDecimal<T_Alloc>::div_integer (BigDecimal& B, u32 MinFracPrecision) -> v
 template <typename T_Alloc>
 auto BigDecimal<T_Alloc>::get_least_significant_exponent() -> i32 {
     HardAssert(is_normalized_fractional());
-    return (Exponent-this->count_bits())+1;
+    return (exponent-this->count_bits())+1;
 }
 
 
@@ -1657,7 +1661,7 @@ auto BigDecimal<T_Alloc>::add_fractional (BigDecimal& B) -> void {
     bool WasZero = A.is_zero();
     A.add_integer_signed(B_);
     int NewMSB = A.get_msb();
-    A.Exponent = WasZero ? B_.Exponent : A.Exponent+(NewMSB-OldMSB);
+    A.exponent = WasZero ? B_.exponent : A.exponent+(NewMSB-OldMSB);
     normalize();
 
     return;
@@ -1685,7 +1689,7 @@ auto BigDecimal<T_Alloc>::sub_fractional (BigDecimal& B)-> void {
     int OldMSB = get_msb();
     A.sub_integer_signed(B_);
     int NewMSB = get_msb();
-    A.Exponent += (NewMSB-OldMSB);
+    A.exponent += (NewMSB-OldMSB);
     normalize();
 
     return;
@@ -1700,10 +1704,10 @@ auto BigDecimal<T_Alloc>::mul_fractional(BigDecimal& B) -> void {
     HardAssert(is_normalized_fractional());
     HardAssert(B.is_normalized_fractional());
     BigDecimal& A = *this;
-    int Exponent_ = A.Exponent + B.Exponent - A.get_msb() - B.get_msb();
+    int exponent_ = A.exponent + B.exponent - A.get_msb() - B.get_msb();
     A.mul_integer(B);
     normalize();
-	A.Exponent = Exponent_ + A.get_msb();
+	A.exponent = exponent_ + A.get_msb();
 
     return;
 }
@@ -1745,7 +1749,7 @@ auto BigDecimal<T_Alloc>::div_fractional (BigDecimal& B, u32 MinFracPrecision) -
 
 template <typename T_Alloc>
 auto BigDecimal<T_Alloc>::neg () -> void {
-    this->IsNegative = !this->IsNegative;
+    this->is_negative = !this->is_negative;
 }
 
 
@@ -1755,16 +1759,16 @@ auto BigDecimal<T_Alloc>::neg () -> void {
  *  \arg   what : leave empty for default (ZERO_DIGITS_ONLY), or add ZERO_SIGN | ZERO_EXPONENT as needed
  *  \note  why this function exists:
  *         1: it's presumeably cheaper than set(0) (used often in hot loops of multiply alrogithm for example)
- *         2: easier say A.zero() than A.set(0,A.IsNegative,A.Exponent)
+ *         2: easier say A.zero() than A.set(0,A.is_negative,A.exponent)
  *            and more explicit and clear to say A.zero(ZERO_EVERYTHING) than A.set(0)*/
 template <typename T_Alloc>
 auto BigDecimal<T_Alloc>::zero(flags32 what) -> void {
         data.value = 0x0;
         length = 1;
     if (IsSet(what, ZERO_SIGN))
-        IsNegative = false;
+        is_negative = false;
     if (IsSet(what, ZERO_EXPONENT))
-        Exponent = 0;
+        exponent = 0;
 }
 
 template <typename T_Alloc>
@@ -1927,10 +1931,10 @@ auto BigDecimal<T_Alloc>::set_bits_array(T_Slot *vals, u32 count) -> void {
 **/
 template <typename T_Alloc>
 template <std::integral T_Src>
-auto BigDecimal<T_Alloc>::set(T_Src Value, bool IsNegative, i32 Exponent)  -> BigDecimal<T_Alloc>& {
+auto BigDecimal<T_Alloc>::set(T_Src Value, bool is_negative, i32 exponent)  -> BigDecimal<T_Alloc>& {
     this->set_bits_64(Value);
-    this->IsNegative = IsNegative;
-    this->Exponent = Exponent;
+    this->is_negative = is_negative;
+    this->exponent = exponent;
 
     HardAssert(is_normalized_integer());
     return *this;
@@ -1942,10 +1946,10 @@ auto BigDecimal<T_Alloc>::set(T_Src Value, bool IsNegative, i32 Exponent)  -> Bi
 **/
 template <typename T_Alloc>
 template <std::integral T_Slot>
-auto BigDecimal<T_Alloc>::set(T_Slot *ValArray, u32 ValCount, bool IsNegative/* =false */, i32 Exponent /* =0 */) -> BigDecimal& {
+auto BigDecimal<T_Alloc>::set(T_Slot *ValArray, u32 ValCount, bool is_negative/* =false */, i32 exponent /* =0 */) -> BigDecimal& {
     set_bits_array(ValArray, ValCount);
-    this->IsNegative = IsNegative;
-    this->Exponent = Exponent;
+    this->is_negative = is_negative;
+    this->exponent = exponent;
 
     HardAssert(is_normalized_integer());
 
@@ -1957,13 +1961,13 @@ auto BigDecimal<T_Alloc>::set(T_Slot *ValArray, u32 ValCount, bool IsNegative/* 
 template <typename T_Alloc>
 auto BigDecimal<T_Alloc>::set_float(real32 Val) -> void {
     this->zero();
-    this->IsNegative = Sign(Val);
-    this->Exponent = Exponent32(Val);
+    this->is_negative = Sign(Val);
+    this->exponent = Exponent32(Val);
     bool Denormalized = IsDenormalized(Val);
     u32 Mantissa = Mantissa32(Val, !Denormalized);
     i32 mantissa_bitcount = BitScanReverse32(Mantissa) + 1;
     if (Denormalized && Mantissa != 0) {
-        Exponent -= 22-BitScanReverse32(Mantissa);
+        exponent -= 22-BitScanReverse32(Mantissa);
     }
 
     u32 chunk_width = CHUNK_WIDTH;
@@ -1976,13 +1980,13 @@ template <typename T_Alloc>
 auto BigDecimal<T_Alloc>::set_double(f64 Val) -> void {
 
     this->zero();
-    this->IsNegative = Sign(Val);
-    this->Exponent = Exponent64(Val);
+    this->is_negative = Sign(Val);
+    this->exponent = Exponent64(Val);
     bool Denormalized = IsDenormalized(Val);
     u64 Mantissa = Mantissa64(Val, !Denormalized);
     i32 mantissa_bitcount = BitScanReverse<u64>(Mantissa) + 1;
     if (Denormalized && Mantissa != 0) {
-        Exponent -= DOUBLE_PRECISION-2-BitScanReverse<u64>(Mantissa);
+        exponent -= DOUBLE_PRECISION-2-BitScanReverse<u64>(Mantissa);
     }
     set_bits_64(Mantissa);
     this->normalize();
@@ -2084,36 +2088,36 @@ auto BigDecimal<T_Alloc>::to_float() -> f32 {
     }
 
     this->copy_to(&BigDecimal::temp_to_float);
-    bool Sign = temp_to_float.IsNegative;
+    bool Sign = temp_to_float.is_negative;
 
     int MantissaBitCount = 24;
 
-    i32 ResultExponent = temp_to_float.Exponent;
+    i32 Resultexponent = temp_to_float.exponent;
 
-    if (ResultExponent < -150) {
+    if (Resultexponent < -150) {
         return Sign ? -0.f : 0.f;
     }
 
-    if (ResultExponent < -126) {
-        MantissaBitCount = 150+ResultExponent;
+    if (Resultexponent < -126) {
+        MantissaBitCount = 150+Resultexponent;
     }
 
-    temp_to_float.round_to_n_significant_bits(MantissaBitCount); //Exponent may change
+    temp_to_float.round_to_n_significant_bits(MantissaBitCount); //exponent may change
 
-    ResultExponent = temp_to_float.Exponent;
+    Resultexponent = temp_to_float.exponent;
 
     if (temp_to_float.is_zero()) {
         return Sign ? -0.f : 0.f;
     }
-    if (ResultExponent > 127)
+    if (Resultexponent > 127)
     {
         return Sign ? -Inf32 : Inf32;
     }
 
-    bool Denormalized = ResultExponent < -126;
+    bool Denormalized = Resultexponent < -126;
 
     if (Denormalized) {
-        MantissaBitCount = 150+ResultExponent; //new Exponent => new MSB for Denormalized
+        MantissaBitCount = 150+Resultexponent; //new exponent => new MSB for Denormalized
     }
     HardAssert(MantissaBitCount >= 1 && MantissaBitCount <= 24);
 
@@ -2142,8 +2146,8 @@ auto BigDecimal<T_Alloc>::to_float() -> f32 {
 
     u32 Result = Sign << 31;
     u32 Bias = 127;
-    ResultExponent = Denormalized || this->is_zero() ? 0 : ResultExponent + Bias;
-    Result |= ResultExponent << 23;
+    Resultexponent = Denormalized || this->is_zero() ? 0 : Resultexponent + Bias;
+    Result |= Resultexponent << 23;
     Result |= Mantissa;
 
     return *reinterpret_cast<float *>(&Result);
@@ -2159,36 +2163,36 @@ auto BigDecimal<T_Alloc>::to_double() -> f64 {
     }
 
     this->copy_to(&BigDecimal::temp_to_float);
-    bool Sign = temp_to_float.IsNegative;
+    bool Sign = temp_to_float.is_negative;
 
     int MantissaBitCount = DOUBLE_PRECISION;
 
-    i32 ResultExponent = temp_to_float.Exponent;
+    i32 Resultexponent = temp_to_float.exponent;
 
-    if (ResultExponent < MinExponent64) {
+    if (Resultexponent < MinExponent64) {
         return Sign ? -0.f : 0.f;
     }
 
-    if (ResultExponent < -(FloatBias64-1)) {
-        MantissaBitCount = (-MinExponent64)+ResultExponent;
+    if (Resultexponent < -(FloatBias64-1)) {
+        MantissaBitCount = (-MinExponent64)+Resultexponent;
     }
 
-    temp_to_float.round_to_n_significant_bits(MantissaBitCount); //Exponent may change
+    temp_to_float.round_to_n_significant_bits(MantissaBitCount); //exponent may change
 
-    ResultExponent = temp_to_float.Exponent;
+    Resultexponent = temp_to_float.exponent;
 
-    if (ResultExponent < (MinExponent64+1) /*|| temp_to_float.is_zero()*/) { //TODO(##2024 07 13):check is_zero?
+    if (Resultexponent < (MinExponent64+1) /*|| temp_to_float.is_zero()*/) { //TODO(##2024 07 13):check is_zero?
         return Sign ? -0.f : 0.f;
     }
-    if (ResultExponent > FloatBias64)
+    if (Resultexponent > FloatBias64)
     {
         return Sign ? -Inf64 : Inf64;
     }
 
-    bool Denormalized = ResultExponent < -(FloatBias64-1); //TODO(ArokhSlade##2024 10 18): simplify with <=
+    bool Denormalized = Resultexponent < -(FloatBias64-1); //TODO(ArokhSlade##2024 10 18): simplify with <=
 
     if (Denormalized) {
-        MantissaBitCount = (-MinExponent64)+ResultExponent; //new Exponent => new MSB for Denormalized
+        MantissaBitCount = (-MinExponent64)+Resultexponent; //new exponent => new MSB for Denormalized
     }
     HardAssert(MantissaBitCount >= 1 && MantissaBitCount <= DOUBLE_PRECISION);
     //TODO(ArokhSlade##2024 09 30): use the new MaskBottomNBits function
@@ -2216,10 +2220,10 @@ auto BigDecimal<T_Alloc>::to_double() -> f64 {
     //   _|_______,____|____,________,________,________,________,________,________
     //   1|<----11---->|<------------------------52------------------------------>
 
-    u64 ResultBits = Sign << 63;
+    u64 ResultBits = (u64)Sign << 63;
     u64 Bias = FloatBias64;
-    ResultExponent = Denormalized || this->is_zero() ? 0 : ResultExponent + Bias;
-    ResultBits = ResultExponent;
+    Resultexponent = Denormalized || this->is_zero() ? 0 : Resultexponent + Bias;
+    ResultBits = Resultexponent;
     ResultBits <<= DOUBLE_PRECISION-1;
     ResultBits |= Mantissa;
     f64 Result = *reinterpret_cast<f64 *>(&ResultBits);
@@ -2235,7 +2239,7 @@ template <typename T_Alloc>
 BigDecimal<T_Alloc>::operator std::string(){
     std::string Result;
 
-    Result += IsNegative ? '-' : '+';
+    Result += is_negative ? '-' : '+';
     ChunkList *Cur = get_head();
     i32 UnusedChunks = m_chunks_capacity - length;
     constexpr i32 width = sizeof(ChunkBits) * 2;
@@ -2251,7 +2255,7 @@ BigDecimal<T_Alloc>::operator std::string(){
 
     char ExpBuf[16] = "";
 
-    stbsp_sprintf(ExpBuf, "E%d", Exponent);
+    stbsp_sprintf(ExpBuf, "E%d", exponent);
     Result+=ExpBuf;
 
     Result += "[";
@@ -2261,7 +2265,7 @@ BigDecimal<T_Alloc>::operator std::string(){
     return Result;
 }
 
-//template BigDecimal<Arena_Allocator<ChunkBits>>::operator std::string(); //explicit instantiation so it's available in debugger
+template BigDecimal<ArenaAlloc<ChunkBits>>::operator std::string(); //explicit instantiation so it's available in debugger
 
 
 template <typename T_Alloc>
@@ -2271,7 +2275,7 @@ std::ostream& operator<<(std::ostream& Out, BigDecimal<T_Alloc>& big_decimal) {
 
 template <typename T_ChunkBitsAlloc, typename T_CharAlloc>
 auto to_chars(BigDecimal<T_ChunkBitsAlloc>& A, T_CharAlloc& string_alloc) -> char* {
-    char Sign = A.IsNegative ? '-' : '+';
+    char Sign = A.is_negative ? '-' : '+';
     typename BigDecimal<T_ChunkBitsAlloc>::ChunkList *CurChunk = A.get_head();
     i32 UnusedChunks = A.m_chunks_capacity - A.length;
     char HexDigits[11] = "";

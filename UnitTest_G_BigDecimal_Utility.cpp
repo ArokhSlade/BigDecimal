@@ -3,7 +3,7 @@
 #include "G_BigDecimal_Utility.h"
 #include "G_Math_Utility.h" //FLOAT_PRECISION
 
-#include "Memoryapi.h"
+#include "Memoryapi.h" //VirtuaAlloc()
 #undef OPTION
 #undef BitScanReverse //NOTE(ArokhSlade##2024 10 13): avoid the windows library macro that renames our function calls to _BitScanReverse
 
@@ -128,7 +128,7 @@ i32 Test_big_decimal(bool only_errors = false) {
     Print(B,&StringArena);
 
     A.neg();
-    Tests.Append(A.length == 1 && A.get_chunk(0)->value == 9U && A.IsNegative);
+    Tests.Append(A.length == 1 && A.get_chunk(0)->value == 9U && A.is_negative);
     Print(A,&StringArena);
 
     {
@@ -702,7 +702,7 @@ i32 Test_big_decimal(bool only_errors = false) {
         B.set(2);
         ExpectedInteger.set(0);
         ExpectedFraction.set(1);
-        ExpectedFraction.Exponent = -1;
+        ExpectedFraction.exponent = -1;
         div_integer<ArenaChunkAlloc>(A, B, QuoInt, QuoFrac);
         cout << "Test#" << Tests.TestCount << "\n";
         CheckQuo();
@@ -716,7 +716,7 @@ i32 Test_big_decimal(bool only_errors = false) {
         B.set(2046);
         ExpectedInteger.set(0);
         ExpectedFraction.set(739);
-        ExpectedFraction.Exponent = -1;
+        ExpectedFraction.exponent = -1;
         div_integer(A, B, QuoInt, QuoFrac, 10);
         CheckQuo();
     }
@@ -729,7 +729,7 @@ i32 Test_big_decimal(bool only_errors = false) {
         ExpectedInteger.set(1);
         u32 FracVal[]{0b1010'00001011'11010001'00110110'1001};
         ExpectedFraction.set(FracVal,1);
-        ExpectedFraction.Exponent = -1;
+        ExpectedFraction.exponent = -1;
         div_integer(A, B, QuoInt, QuoFrac, 32);
         CheckQuo();
     }
@@ -741,7 +741,7 @@ i32 Test_big_decimal(bool only_errors = false) {
         ExpectedInteger.set(1);     //1010'00001011'11010001'00110110'1001    1111'11100100'11111101
         u32 FractionChunks[2] = {0b00110110'10011111'11100100'11111101, 0b1010'00001011'11010001};
         ExpectedFraction.set(FractionChunks, ArrayCount(FractionChunks));
-        ExpectedFraction.Exponent = -1;
+        ExpectedFraction.exponent = -1;
         div_integer(A, B, QuoInt, QuoFrac, 52);
         CheckQuo();
     }
@@ -753,7 +753,7 @@ i32 Test_big_decimal(bool only_errors = false) {
         ExpectedInteger.set(2, 1, 1);
         u32 FractionChunks[1] = {0b1};
         ExpectedFraction.set(FractionChunks, ArrayCount(FractionChunks));
-        ExpectedFraction.Exponent = -1;
+        ExpectedFraction.exponent = -1;
         div_integer(A, B, QuoInt, QuoFrac, 1);
         CheckQuo();
     }
@@ -764,7 +764,7 @@ i32 Test_big_decimal(bool only_errors = false) {
         ExpectedInteger.set(3,1,Log2I(3)); //dec 3.3333333... == bin 11.0101010101...
         u32 FractionChunks[2] = {0b01010101'01010101'01010101'01010101, 0b0101'01010101'01010101};
         ExpectedFraction.set(FractionChunks, ArrayCount(FractionChunks));
-        ExpectedFraction.Exponent = -2;
+        ExpectedFraction.exponent = -2;
         div_integer(A, B, QuoInt, QuoFrac, 52);
         CheckQuo();
     }
@@ -774,11 +774,11 @@ i32 Test_big_decimal(bool only_errors = false) {
         B.set(1'000'000);
 
         div_integer(A, B, QuoInt, QuoFrac, 52);
-        cout << "1 millionth (fraction part ): " << QuoFrac << ", " << QuoFrac.Exponent << " Exponent, " << QuoFrac.count_bits() << " explicit significant fraction bits" << '\n';
+        cout << "1 millionth (fraction part ): " << QuoFrac << ", " << QuoFrac.exponent << " exponent, " << QuoFrac.count_bits() << " explicit significant fraction bits" << '\n';
 
         B.set(1'000'000'000);
         div_integer(A, B, QuoInt, QuoFrac, 52);
-        cout << "1 billionth (fraction part ): " << QuoFrac << ", " << QuoFrac.Exponent<< " Exponent, " << QuoFrac.count_bits() << " explicit significant fraction bits" << '\n';
+        cout << "1 billionth (fraction part ): " << QuoFrac << ", " << QuoFrac.exponent<< " exponent, " << QuoFrac.count_bits() << " explicit significant fraction bits" << '\n';
 
 //        B.set(1'000'000'000'000);
 //        div_integer(A, B, QuoInt, QuoFrac, 52);
@@ -800,7 +800,7 @@ i32 Test_big_decimal(bool only_errors = false) {
         u32 ValuesExpected[] {0x0000'0001,0x0000'0000,0x0000'0000,0x0000'0001};
         ExpectedInteger.set(ValuesExpected, ArrayCount(ValuesExpected));
         ExpectedFraction.set(0);
-        ExpectedFraction.Exponent = 0;
+        ExpectedFraction.exponent = 0;
 
         div_integer(A, B, QuoInt, QuoFrac, 52);
         CheckQuo();
@@ -908,10 +908,10 @@ i32 Test_big_decimal(bool only_errors = false) {
         CheckA();
 
         A.set(3);
-        A.Exponent = Log2I(3);
+        A.exponent = Log2I(3);
         A.normalize();
         B.set(2);
-        B.Exponent = Log2I(2);
+        B.exponent = Log2I(2);
         B.normalize();
         A.div_fractional(B); // A= 3/2
         B.div_fractional(A,33); // B= 4/3
@@ -1051,11 +1051,11 @@ i32 Test_big_decimal(bool only_errors = false) {
         A.set(0x8811,false,7);
         A.shift_left(64);
         A.extend_length();
-        A.Exponent = 7;
+        A.exponent = 7;
         A.copy_to(&OldA);
         A.normalize();
         Expected.set(0x8811);
-        Expected.Exponent = 7;
+        Expected.exponent = 7;
         PrintTestA(TestName);
         Tests.Append(A.equals_fractional(Expected));
 
@@ -1066,7 +1066,7 @@ i32 Test_big_decimal(bool only_errors = false) {
         A.set(0x10'000'000);
         A.normalize();
         Expected.set(1);
-        Expected.Exponent = 0; //Normalize doesn't change exponent
+        Expected.exponent = 0; //Normalize doesn't change exponent
 
         Tests.Append(A.equals_fractional(Expected));
 
@@ -1712,7 +1712,7 @@ Test_Parsing(bool only_errors = false) {
                             {0x63, 0x0},
                              {0x9, 0x0}
             };
-            A.Exponent = 0; //check only the bits
+            A.exponent = 0; //check only the bits
             Expected.set(ValuesExpected[i], ArrayCount(ValuesExpected[i]));
             char TestName[64] = {'\0'};
             CatStrings("Parse ", SubString, ArrayCount(TestName), TestName);
