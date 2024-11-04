@@ -1,16 +1,21 @@
 #include "G_Essentials.h"
 #include "G_Miscellany_Utility.h"
+#include "G_MemoryManagement_Service.h"
 #include "G_BigDecimal_Utility.h"
 #include "G_Math_Utility.h" //FLOAT_PRECISION
-
-#include "Memoryapi.h" //VirtuaAlloc()
-#undef OPTION
-#undef BitScanReverse //NOTE(ArokhSlade##2024 10 13): avoid the windows library macro that renames our function calls to _BitScanReverse
 
 #include <iostream>
 #include <sstream>
 #include <iomanip>
 #include <stdio.h>
+
+
+#include "Memoryapi.h" //VirtuaAlloc()
+#undef OPTION
+#undef BitScanReverse //NOTE(ArokhSlade##2024 10 13): avoid the windows library macro that renames our function calls to _BitScanReverse
+inline FUN_DELETER(virtual_free_decommit) {
+    VirtualFree(memory,size,MEM_DECOMMIT);
+}
 
 #define ACTIVATE_ALL_TESTS 1
 //TODO(ArokhSlade##2024 08 13): this is copy-pasta from UnitTest_G_PlatformGame_2_Module.cpp. extract!
@@ -56,15 +61,6 @@ auto Print(BigDecimal<T_Alloc>& A, memory_arena *StringArena) -> void {
     PopArena(TempArena);
 }
 
-//NOTE(ArokhSlade##2024 09 20): macro in G_MemoryManagement_Service
-FUN_DELETER(virtual_free_decommit) {
-    VirtualFree(memory,size,MEM_DECOMMIT);
-}
-
-//NOTE(ArokhSlade##2024 09 20): macro in G_MemoryManagement_Service
-FUN_DELETER(std_deleter) {
-    delete[] (memory);
-}
 
 //TODO(ArokhSlade##2024 08 13): this is copy-pasta from UnitTest_G_PlatformGame_2_Module.cpp. extract!
 //TODO(ArokhSlade##2024 08 18): implement only_errors for all tests -> ideally make it a unit test facility
@@ -1994,9 +1990,9 @@ int Test_new_allocator_interface() {
 
         size_t size = Kilobytes(1);
         u8 * memory = new u8[size]();
-        ArenaAlloc<ChunkBits> alloc_1{size, memory, std_deleter};
+        ArenaAlloc<ChunkBits> alloc_1{size, memory, deleter_std};
         memory = new u8[size]();
-        ArenaAlloc<ChunkBits> alloc_2{size, memory, std_deleter};
+        ArenaAlloc<ChunkBits> alloc_2{size, memory, deleter_std};
 
         OK = true;
         OK &= alloc_1.meta->ref_count == 1;
@@ -2092,7 +2088,7 @@ int Test_new_allocator_interface() {
         u8 *memory = new u8[capacity]();
 //        Arena_Allocator<ChunkBits> std_new_arena_alloc_1{capacity, memory};
 
-        ArenaChunkAlloc std_new_arena_alloc_1{ capacity, memory, std_deleter};
+        ArenaChunkAlloc std_new_arena_alloc_1{ capacity, memory, deleter_std};
 
         unit_test_context_variables_count<BigDec_Arena>(Tests, "Big Decimal with Arena before Init", 0);
 
@@ -2126,7 +2122,7 @@ int Test_new_allocator_interface() {
 
             size_t user_capacity = 512;
             u8 *user_memory = new u8[user_capacity]();
-            ArenaAlloc<ChunkBits> std_new_arena_alloc_2{user_capacity, user_memory, std_deleter};
+            ArenaAlloc<ChunkBits> std_new_arena_alloc_2{user_capacity, user_memory, deleter_std};
 
             i32 old_ctx_count = BigDec_Arena::s_ctx_count;
             BigDec_Arena A { std_new_arena_alloc_2, f1};;
@@ -2159,11 +2155,11 @@ int Test_new_allocator_interface() {
             constexpr i32 MAX_STRING_COUNT = 128;
             size_t char_buf_size = sizeof(char) * MAX_STRING_LEN * MAX_STRING_COUNT;
             u8 *char_buf = new u8[char_buf_size]();
-            ArenaAlloc<char> std_new_arena_alloc_3{char_buf_size, char_buf, std_deleter};
+            ArenaAlloc<char> std_new_arena_alloc_3{char_buf_size, char_buf, deleter_std};
 
             constexpr i32 BIG_DEC_BUF_SIZE = Kilobytes(1);
             u8 *big_dec_buf = new u8[BIG_DEC_BUF_SIZE]();
-            ArenaChunkAlloc std_new_arena_alloc_4{BIG_DEC_BUF_SIZE, big_dec_buf, std_deleter};
+            ArenaChunkAlloc std_new_arena_alloc_4{BIG_DEC_BUF_SIZE, big_dec_buf, deleter_std};
 
             BigDec_Arena::initialize_context(std_new_arena_alloc_4);
 
@@ -2489,7 +2485,7 @@ int Test_variable_chunkment_size(bool only_errors=false) {
 
     size_t size = Kilobytes(512);
     u8 * memory = new u8[size]();
-    ArenaAlloc<ChunkBits> alloc{size, memory, std_deleter};
+    ArenaAlloc<ChunkBits> alloc{size, memory, deleter_std};
     BigDec_Arena::initialize_context(alloc);
     {
 

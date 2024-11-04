@@ -2,8 +2,6 @@
 #define G_MISCELLANY_UTILITY_H
 
 #include "G_Essentials.h"
-//#include "..\\lib\\STB sprintf\\stb_sprintf.h"
-//#include "E:\programming\C++\S4G\Portfolio\lib\STB sprintf\stb_sprintf.h"
 #include "..\lib\STB sprintf\stb_sprintf.h"
 #include <cstdio>
 #include <cstdlib> //std::strtof

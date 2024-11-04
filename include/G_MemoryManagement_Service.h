@@ -259,10 +259,10 @@ struct ArenaAlloc{
     }
 };
 
-// conflict with charvonv.h:81 "multiple definition"
-//FUN_DELETER(std_deleter) {
-//    delete[] (memory);
-//}
+
+inline FUN_DELETER(deleter_std) {
+    delete[] (memory);
+}
 
 
 #endif //MEMORY_MANAGEMENT_SERVICE_H

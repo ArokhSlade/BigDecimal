@@ -2167,32 +2167,32 @@ auto BigDecimal<T_Alloc>::to_double() -> f64 {
 
     int MantissaBitCount = DOUBLE_PRECISION;
 
-    i32 Resultexponent = temp_to_float.exponent;
+    i64 ResultExponent = temp_to_float.exponent;
 
-    if (Resultexponent < MinExponent64) {
+    if (ResultExponent < MinExponent64) {
         return Sign ? -0.f : 0.f;
     }
 
-    if (Resultexponent < -(FloatBias64-1)) {
-        MantissaBitCount = (-MinExponent64)+Resultexponent;
+    if (ResultExponent < -(FloatBias64-1)) {
+        MantissaBitCount = (-MinExponent64)+ResultExponent;
     }
 
     temp_to_float.round_to_n_significant_bits(MantissaBitCount); //exponent may change
 
-    Resultexponent = temp_to_float.exponent;
+    ResultExponent = temp_to_float.exponent;
 
-    if (Resultexponent < (MinExponent64+1) /*|| temp_to_float.is_zero()*/) { //TODO(##2024 07 13):check is_zero?
+    if (ResultExponent < (MinExponent64+1) /*|| temp_to_float.is_zero()*/) { //TODO(##2024 07 13):check is_zero?
         return Sign ? -0.f : 0.f;
     }
-    if (Resultexponent > FloatBias64)
+    if (ResultExponent > FloatBias64)
     {
         return Sign ? -Inf64 : Inf64;
     }
 
-    bool Denormalized = Resultexponent < -(FloatBias64-1); //TODO(ArokhSlade##2024 10 18): simplify with <=
+    bool Denormalized = ResultExponent < -(FloatBias64-1); //TODO(ArokhSlade##2024 10 18): simplify with <=
 
     if (Denormalized) {
-        MantissaBitCount = (-MinExponent64)+Resultexponent; //new exponent => new MSB for Denormalized
+        MantissaBitCount = (-MinExponent64)+ResultExponent; //new exponent => new MSB for Denormalized
     }
     HardAssert(MantissaBitCount >= 1 && MantissaBitCount <= DOUBLE_PRECISION);
     //TODO(ArokhSlade##2024 09 30): use the new MaskBottomNBits function
@@ -2222,9 +2222,9 @@ auto BigDecimal<T_Alloc>::to_double() -> f64 {
 
     u64 ResultBits = (u64)Sign << 63;
     u64 Bias = FloatBias64;
-    Resultexponent = Denormalized || this->is_zero() ? 0 : Resultexponent + Bias;
-    ResultBits = Resultexponent;
-    ResultBits <<= DOUBLE_PRECISION-1;
+    ResultExponent = Denormalized || this->is_zero() ? 0 : ResultExponent + Bias;
+    ResultExponent <<= DOUBLE_PRECISION-1;
+    ResultBits |= ResultExponent;
     ResultBits |= Mantissa;
     f64 Result = *reinterpret_cast<f64 *>(&ResultBits);
     return Result;
