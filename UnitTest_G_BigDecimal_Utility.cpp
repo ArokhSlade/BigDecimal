@@ -3067,5 +3067,6 @@ int main() {
     FailCount += Test_new_allocator_interface();
     FailCount += Test_variable_chunkment_size(false);
 
+	std::cout << "\n Tests Failed: " << FailCount;
     return FailCount;
 }

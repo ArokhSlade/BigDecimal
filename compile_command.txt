@@ -241,3 +241,4 @@ fix the code in the original so that this compiles without any warning suppressi
 
 g++ -std=c++20 -Wno-narrowing -g -o ./build/UnitTest_G_BigDecimal_Utility -I ./include/  UnitTest_G_BigDecimal_Utility.cpp -L./lib -L"./lib/STB sprintf" -l:G_MemoryManagement_Service.lib -l:G_Miscellany_Utility.lib -l:"STB sprintf.lib"
 
+g++ -std=c++20 -Wno-narrowing -g -o ./build/Demo_G_BigDecimal_Utility -I ./include/  Demo_G_BigDecimal_Utility.cpp -L./lib -L"./lib/STB sprintf" -l:G_MemoryManagement_Service.lib -l:G_Miscellany_Utility.lib -l:"STB sprintf.lib"

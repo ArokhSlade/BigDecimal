@@ -1214,6 +1214,7 @@ auto BigDecimal<T_Alloc>::sub_integer_signed (BigDecimal& B)-> void {
 template <typename T_Alloc>
 auto BigDecimal<T_Alloc>::shift_left(u32 ShiftAmount) -> BigDecimal& {
 
+	HardAssert(ShiftAmount >= 0);
     HardAssert(this->is_normalized_integer());
 
     if (this->is_zero()) {
@@ -1284,6 +1285,7 @@ auto BigDecimal<T_Alloc>::shift_left(u32 ShiftAmount) -> BigDecimal& {
 template <typename T_Alloc>
 auto BigDecimal<T_Alloc>::shift_right(u32 ShiftAmount) -> BigDecimal& {
 
+	HardAssert(ShiftAmount >= 0);
     HardAssert(this->is_normalized_integer());
 
     if (ShiftAmount == 0) { return *this; }
