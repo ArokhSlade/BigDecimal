@@ -90,9 +90,9 @@ struct BigDecimal {
     using LinkAlloc = std::allocator_traits<T_Alloc>::template rebind_alloc<Link>;
 
     //Assigned through initialize_context()
-    static T_Alloc s_ctx_alloc; //NOTE(ArokhSlade##2024 09 04): needed for FromFloat (default arg lvalue reference)
-    static ChunkAlloc s_chunk_alloc;
-    static LinkAlloc s_link_alloc;
+    static T_Alloc s_ctx_alloc;             //NOTE(ArokhSlade##2024 11 05): not currently used. because ChunkBits (unsigned integral values) are never allocated directly. what's actually allocated is list elements.
+    static ChunkAlloc s_chunk_alloc;        //NOTE(ArokhSlade##2024 11 05): for list nodes holding chunks of a BigDecimal object
+    static LinkAlloc s_link_alloc;          //NOTE(ArokhSlade##2024 11 05): for nodes in the list holding BigDecimal objects stored in the static context
 
     static Link *s_ctx_links;
 
@@ -258,14 +258,16 @@ struct BigDecimal {
         if (!them) {
             HardAssert(s_ctx_links);
             Link *new_head = s_ctx_links->next;
-            std::allocator_traits<LinkAlloc>::deallocate(s_link_alloc, s_ctx_links, sizeof(Link));
+//            std::allocator_traits<LinkAlloc>::deallocate(s_link_alloc, s_ctx_links, sizeof(Link)); //TODO(ArokhSlade##2024 11 05): BUG? shouldn't the last parameter be 1, for count, not size?
+            std::allocator_traits<LinkAlloc>::deallocate(s_link_alloc, s_ctx_links, 1);
             s_ctx_links = new_head;
             return;
         }
 
         if (them->next) {
             Link *new_successor = them->next->next;
-            std::allocator_traits<LinkAlloc>::deallocate(s_link_alloc, them->next, sizeof(Link));
+//            std::allocator_traits<LinkAlloc>::deallocate(s_link_alloc, them->next, sizeof(Link)); //TODO(ArokhSlade##2024 11 05): BUG? shouldn't the last parameter be 1, for count, not size?
+            std::allocator_traits<LinkAlloc>::deallocate(s_link_alloc, them->next, 1);
             them->next = new_successor;
         }
         return;
@@ -392,7 +394,8 @@ struct BigDecimal {
         while (chunk != &data) {
             HardAssert(chunk);
             prev = chunk->prev;
-            std::allocator_traits<ChunkAlloc>::deallocate(m_chunk_alloc, chunk, sizeof(ChunkList));
+//            std::allocator_traits<ChunkAlloc>::deallocate(m_chunk_alloc, chunk, sizeof(ChunkList)); //TODO(ArokhSlade##2024 11 05): BUG? shouldn't the last parameter be 1, for count, not size?
+            std::allocator_traits<ChunkAlloc>::deallocate(m_chunk_alloc, chunk, 1);
             chunk = prev;
             chunk->next = nullptr;
             --m_chunks_capacity;
