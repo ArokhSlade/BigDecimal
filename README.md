@@ -1,4 +1,4 @@
-### G_BigDecimal - Header-only Library
+### BigDecimal - Header-only Library
 
 This library provides a floating-point-like data-type for storing numbers of arbitrary precision.   
 (Today, I would probably call it BigFloat, as that seems more accurate.)   
